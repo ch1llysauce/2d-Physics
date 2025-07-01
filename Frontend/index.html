@@ -1,5 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">    
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2D Physics Engine</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <h1>2D Physics Engine Simulator</h1>
+
+    <div id="nav">
+        <button onclick="switchLesson('freefall')">Free Fall</button>
+        <button onclick="switchLesson('kinematics')">Kinematics</button>
+        <button onclick="switchLesson('forces')">Forces and Motion</button>
+        <button onclick="switchLesson('friction')">Friction</button>
+        <button onclick="switchLesson('workEnergy')">Work and Energy</button>
+    </div>
+
+    <div id="lesson-description"></div>
+    <div id="controls"></div>
+    <canvas id="canvas" width="800" height="400"></canvas>
+
+    <script src="main.js"></script>
+
+</body>
 
 </html>

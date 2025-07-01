@@ -1,0 +1,55 @@
+body {
+  font-family: sans-serif;
+  padding: 20px;
+  text-align: center;
+}
+
+#nav {
+  margin-bottom: 20px;
+}
+
+#nav button {
+  margin: 5px;
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+#freefall-controls,
+#kinematics-controls,
+#forces-controls,
+#friction-controls,
+#work-energy-controls {
+  margin: 20px;
+  padding: 10px;
+}
+
+#freefall-controls button,
+#kinematics-controls button, 
+#forces-controls button,
+#friction-controls button,
+#work-energy-controls button {
+  margin-right: 15px;
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+
+#controls {
+  margin: 20px auto;
+}
+
+canvas {
+  display: block;
+  margin: 0 auto;
+  border: 1px solid #ccc;
+  background: #f9f9f9;
+}
+
+#lesson-description {
+  margin: 10px 0;
+  font-weight: bold;
+}
+
+input {
+  margin-left: 10px;
+}

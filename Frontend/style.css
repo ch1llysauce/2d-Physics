@@ -14,6 +14,17 @@ body {
   font-size: 1rem;
 }
 
+#nav button.active {
+  background-color: #0077cc;
+  color: white;
+  font-weight: bold;
+}
+
+#nav button:hover {
+  background-color: #005fa3;
+  color: white;
+}
+
 #freefall-controls,
 #kinematics-controls,
 #forces-controls,
@@ -33,6 +44,22 @@ body {
   font-size: 1rem;
 }
 
+.button {
+  border: 1px solid #000000;
+  color: #020202;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin-top: 10px;
+  margin-right: 5px;
+}
+
+
+.pause-red {
+  background-color: #f44336; /* Red */
+}
 
 #controls {
   margin: 20px auto;

@@ -1,5 +1,11 @@
+import { applyPhysics } from "./physics.js";
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+let objects = [];
+let currentLesson = localStorage.getItem("currentLesson") || "freefall";
+let lastTime = performance.now();
 
 function switchLesson(lesson) {
   currentLesson = lesson;
@@ -37,7 +43,7 @@ function updateLessonUI() {
   }
 
   if (currentLesson === "forces") {
-    desc.innerHTML = "This lesson demonstrates Newton’s Second Law: how force, mass, and angle affect an object’s acceleration and motion.";
+    desc.innerHTML = "This lesson demonstrates Newton's Second Law: how force, mass, and angle affect an object’s acceleration and motion.";
     controls.innerHTML = `
       <div id="forces-controls">
         <button onclick="spawnBall()">Spawn Ball</button>
@@ -78,14 +84,13 @@ function updateLessonUI() {
 
 }
 
-let objects = [];
+
 function spawnBall(x = 100, y = 50, vx = null) {
   if (vx === null) {
     const input = document.getElementById("initVel");
     vx = input ? parseFloat(input.value) : 0;
   }
   objects.push({ x, y, vx, vy: 0, radius: 20 });
-  console.log("Spawned ball:", objects[objects.length - 1]);
 }
 
 
@@ -98,37 +103,46 @@ function clearCanvas() {
   objects = [];
 }
 
+function drawObject(obj){
+  ctx.beginPath();
+  if(obj.radius){
+    ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
+  } else {
+    ctx.rect(obj.x, obj.y, obj.w, obj.h);
+  }
+  ctx.fillStyle = "#0077cc";
+    ctx.fill();
+}
 
 function update() {
+  const now = performance.now();
+  const deltaTime = (now - lastTime)/1000;
+  lastTime = now;
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  const gravity = parseFloat(document.getElementById("gravity")?.value || 9.8);
+  const restitution = parseFloat(document.getElementById("restitution")?.value || 0.8);
   // Apply simple gravity and draw objects
   for (let o of objects) {
-
-    // Gravity and motion
-    o.vy += 0.5;      
-    o.y += o.vy;
-    o.x += o.vx;
-
-    // Collision with the ground
-    if (o.y + (o.radius || o.h / 2) > canvas.height) {
-      o.y = canvas.height - (o.radius || o.h / 2);
-      o.vy *= -0.8; 
-    }
-
-    // Draw
-    ctx.beginPath();
-    if (o.radius) {
-      ctx.arc(o.x, o.y, o.radius, 0, 2 * Math.PI);
-    } else {
-      ctx.rect(o.x, o.y, o.w, o.h);
-    }
-    ctx.fillStyle = "#0077cc";
-    ctx.fill();
+      applyPhysics(o, {
+        gravity,
+        restitution,
+        canvasHeight: canvas.height,
+        deltaTime,
+        currentLesson,
+        friction: parseFloat(document.getElementById("friction")?.value || 0)
+      }, objects);
+      drawObject(o);
   }
 
   requestAnimationFrame(update);
+  
 }
+
+window.spawnBall = spawnBall;
+window.clearCanvas = clearCanvas;
+window.switchLesson = switchLesson;
 
 if (!localStorage.getItem("currentLesson")) {
   switchLesson("freefall");

@@ -11,8 +11,8 @@ let isPaused = false;
 function togglePause() {
   isPaused = !isPaused;
   const pauseBtn = document.getElementById("pauseBtn");
-  
-   if (pauseBtn) {
+
+  if (pauseBtn) {
     pauseBtn.textContent = isPaused ? "Resume" : "Pause";
 
     // Toggle color class
@@ -48,6 +48,7 @@ function updateLessonUI() {
         <button onclick="clearCanvas()">Clear</button>
         Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
         Initial Velocity: <input id="initVel" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Height (Y): <input id="initHeight" type="number" value="50" step="10" style="width: 60px" />
         </div>
     `;
   }
@@ -110,12 +111,18 @@ function updateLessonUI() {
 }
 
 
-function spawnBall(x = 100, y = 50, vx = null) {
-  if (vx === null) {
-    const input = document.getElementById("initVel");
-    vx = input ? parseFloat(input.value) : 0;
-  }
-  objects.push({ x, y, vx, vy: 0, radius: 20 });
+function spawnBall(x = 100, y = null, vx = null, vy = null) {
+  const velInput = document.getElementById("initVel");
+  const heightInput = document.getElementById("initHeight");
+
+  vx = vx !== null ? vx : 0;
+  vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) : 0);
+  y = y !== null
+    ? y
+    : canvas.height - (heightInput ? parseFloat(heightInput.value) : 50); // invert Y
+
+  y = Math.max(0, Math.min(canvas.height - 20, y)); // clamp to canvas bounds
+  objects.push({ x, y, vx, vy, radius: 20 });
 }
 
 
@@ -135,8 +142,29 @@ function drawObject(obj) {
   } else {
     ctx.rect(obj.x, obj.y, obj.w, obj.h);
   }
+
   ctx.fillStyle = "#0077cc";
   ctx.fill();
+
+  function drawObject(obj) {
+  ctx.beginPath();
+  if (obj.radius) {
+    ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
+  } else {
+    ctx.rect(obj.x, obj.y, obj.w, obj.h);
+  }
+
+  ctx.fillStyle = "#0077cc";
+  ctx.fill();
+  
+  // Show height in meters
+  const heightFromGround = Math.max(0, Math.round((canvas.height - obj.y) * 1)); // 1px = 1m
+  ctx.fillStyle = "#000";
+  ctx.font = "12px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(`${heightFromGround}m`, obj.x, obj.y - (obj.radius || obj.h / 2) - 5);
+}
+
 }
 
 function update() {
@@ -145,6 +173,8 @@ function update() {
   lastTime = now;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawRuler();
 
   if (!currentLesson) {
     requestAnimationFrame(update);
@@ -168,12 +198,63 @@ function update() {
     }
   }
 
-  for(let o of objects) {
+  for (let o of objects) {
     drawObject(o);
   }
   requestAnimationFrame(update);
 
 }
+
+function drawRuler() {
+  const rulerX = 30;
+  const rulerY = canvas.height - 30;
+  const interval = 50;
+  const scale = 1; 
+
+  ctx.strokeStyle = "#888";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#000";
+  ctx.font = "12px sans-serif";
+
+  // --- Vertical Ruler ---
+  ctx.beginPath();
+  ctx.moveTo(rulerX, 0);
+  ctx.lineTo(rulerX, canvas.height);
+  ctx.stroke();
+
+  ctx.textAlign = "right";
+  for (let i = 0; i <= canvas.height; i += interval) {
+    const y = canvas.height - i;
+
+    if (y < 15 || y > canvas.height - 10) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(rulerX - 5, y);
+    ctx.lineTo(rulerX + 5, y);
+    ctx.stroke();
+
+    ctx.fillText(`${Math.round(i * scale)}m`, rulerX - 10, y + 4);
+  }
+
+  // --- Horizontal Ruler ---
+  ctx.beginPath();
+  ctx.moveTo(0, rulerY);
+  ctx.lineTo(canvas.width, rulerY);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  for (let x = rulerX; x < canvas.width; x += interval) {
+    if (x < 40 || x > canvas.width - 20) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(x, rulerY - 5);
+    ctx.lineTo(x, rulerY + 5);
+    ctx.stroke();
+
+    ctx.fillText(`${Math.round((x - rulerX) * scale)}m`, x, rulerY + 20);
+  }
+}
+
 
 
 document.querySelectorAll('#nav button').forEach(btn => {

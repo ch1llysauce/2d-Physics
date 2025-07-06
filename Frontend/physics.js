@@ -13,7 +13,7 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
     // Only apply motion (Stage 1)
     if (skipCollision) {
         // Gravity (not for kinematics)
-        if (currentLesson !== "kinematics") {
+        if (currentLesson !== "kinematics" && !obj.restingOn) {
             obj.vy += (obj.gravity ?? gravity) * deltaTime;
         }
 
@@ -39,6 +39,11 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
         if (bottom > canvasHeight) {
             obj.y = canvasHeight - radiusOrHalfHeight;
             obj.vy *= -(obj.restitution ?? restitution);
+
+            
+            if (Math.abs(obj.vy) < 0.2) {
+                obj.vy = 0;
+            }
         }
 
         return;
@@ -55,7 +60,8 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
             const minDist = obj.radius + other.radius;
 
             if (dist <= minDist) {
-                // 1. Calculate normal
+                // 1. Resolve overlap
+                const overlap = minDist - dist;
                 let nx, ny;
                 if (dist === 0) {
                     const angle = Math.random() * 2 * Math.PI;
@@ -66,12 +72,16 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
                     ny = dy / dist;
                 }
 
-                // 2. Resolve overlap
-                const overlap = minDist - dist;
+
                 obj.x -= nx * overlap / 2;
                 obj.y -= ny * overlap / 2;
                 other.x += nx * overlap / 2;
                 other.y += ny * overlap / 2;
+
+                // 2. Check for vertical stack case
+                if (handleVerticalStackCollision(obj, other)) {
+                    continue;
+                }
 
                 // 3. Relative velocity along normal
                 const vxRel = obj.vx - other.vx;
@@ -92,4 +102,40 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
             }
         }
     }
+
+    if (obj.restingOn) {
+        const dx = obj.x - obj.restingOn.x;
+        const dy = obj.y - obj.restingOn.y;
+        const dist = Math.hypot(dx, dy);
+        const combinedRadius = (obj.radius ?? obj.h / 2) + (obj.restingOn.radius ?? obj.restingOn.h / 2);
+
+        if (dist > combinedRadius + 1) {
+            obj.restingOn = null;
+        }
+    }
 }
+
+function handleVerticalStackCollision(obj, other) {
+    const alignedX = Math.abs(obj.x - other.x) < 2;
+    const verticalProximity = Math.abs(obj.y - other.y) < (obj.radius + other.radius) * 1.1;
+
+    if (!alignedX || !verticalProximity) return false;
+
+    const bounce = Math.min(obj.restitution ?? 0.8, other.restitution ?? 0.8);
+    const v1 = obj.vy;
+    const v2 = other.vy;
+
+    const relativeVelocity = v1 - v2;
+    if (Math.abs(relativeVelocity) < 0.2 && Math.abs(v1) < 0.2 && Math.abs(v2) < 0.2) {
+        obj.vy = 0;
+        obj.restingOn = other;
+        return true;
+    }
+
+    obj.vy = -v2 * bounce;
+    other.vy = -v1 * bounce;
+    return true;
+
+}
+
+

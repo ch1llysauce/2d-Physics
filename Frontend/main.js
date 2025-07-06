@@ -72,6 +72,9 @@ function drawObject(obj) {
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
   ctx.fillText(`${heightMeters}m`, obj.x, obj.y - (obj.radius || obj.h / 2) - 5);
+
+  const vy = (obj.vy ?? 0).toFixed(2);
+  ctx.fillText(`v: ${Math.abs(vy)} m/s`, obj.x, obj.y + (obj.radius || obj.h / 2) + 15);
 }
 
 function drawRuler() {
@@ -123,6 +126,36 @@ function drawRuler() {
   }
 }
 
+function drawVelocityArrow(obj, scale = 10){
+  const vx = obj.vx ?? 0;
+  const vy = obj.vy ?? 0;
+  const speed = Math.hypot(vx, vy);
+
+  if(speed < 0.1) return; // Don't draw if speed is negligible
+
+  const startX = obj.x;
+  const startY = obj.y;
+  const endX = startX + (vx * scale);
+  const endY = startY + (vy * scale); // Invert Y for canvas
+
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.strokeStyle = "#ff0000";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const angle = Math.atan2(endY - startY, endX - startX);
+  const headLength = 8;
+
+  ctx.beginPath();
+  ctx.moveTo(endX, endY);
+  ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+  ctx.lineTo(endX, endY);
+  ctx.fillStyle = "#ff0000";
+  ctx.fill();
+}
 // Initialize canvas size
 function update() {
   const now = performance.now();
@@ -167,6 +200,7 @@ function update() {
 
   for (let o of objects) {
     drawObject(o);
+    drawVelocityArrow(o);
   }
   requestAnimationFrame(update);
 

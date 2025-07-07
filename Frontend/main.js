@@ -1,4 +1,4 @@
-import { applyPhysics } from "./physics.js";
+import { applyPhysics, spawnBallFreeFall, spawnBallKinematics } from "./physics.js";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -23,29 +23,13 @@ function togglePause() {
   }
 }
 
-function spawnBall(x = null, y = null, vx = null, vy = null) {
-  const velInput = document.getElementById("initVel");
-  const heightInput = document.getElementById("initHeight");
-  const initXInput = document.getElementById("initX");
-  const gravityInput = document.getElementById("gravity");
-  const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8;
-  const restitutionInput = document.getElementById("restitution");
-  const restitutionVal = restitutionInput ? parseFloat(restitutionInput.value) : 0.8;
-
-  vx = vx !== null ? vx : 0;
-  vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) : 0);
-
-  const heightMeters = heightInput ? parseFloat(heightInput.value) : 2.5;
-  y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter);
-  y = Math.max(0, Math.min(canvas.height - 20, y)); // clamp to canvas bounds 
-
-  const xMeters = initXInput ? parseFloat(initXInput.value) : 0;
-  x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter);
-  x = Math.max(20, Math.min(canvas.width - 20, x)); // clamp to canvas bounds
-
-  objects.push({ x, y, vx, vy, radius: 20, gravity: gravityVal, restitution: restitutionVal });
+function spawnBallFreeFallWrapper() {
+  spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
+function spawnBallKinematicsWrapper() {
+  spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects);
+}
 
 function spawnSlidingBox() {
   objects.push({ x: 100, y: 300, vx: 2, vy: 0, w: 40, h: 20 }); //width and height of 40 and 20 for the box
@@ -74,8 +58,35 @@ function drawObject(obj) {
   ctx.fillText(`${heightMeters}m`, obj.x, obj.y - (obj.radius || obj.h / 2) - 5);
 
   const vy = (obj.vy ?? 0).toFixed(2);
-  ctx.fillText(`v: ${Math.abs(vy)} m/s`, obj.x, obj.y + (obj.radius || obj.h / 2) + 15);
+  ctx.fillText(`v: ${-vy} m/s`, obj.x, obj.y + (obj.radius || obj.h / 2) + 15);
 }
+
+function drawKinematicsObject(obj) {
+  ctx.beginPath();
+  ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
+  ctx.fillStyle = "#0077cc";
+  ctx.fill();
+
+  ctx.fillStyle = "#000";
+  ctx.font = "12px Arial";
+  ctx.textAlign = "center";
+
+  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
+  function formatVelocity(obj, PixelPerMeter) {
+    const vy = obj.vy ?? 0;
+    const vx = obj.vx ?? 0;
+    const speed = Math.hypot(vx, vy) / PixelPerMeter;
+
+    return (vy > 0 ? -speed : speed).toFixed(2);
+  }
+
+
+  ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
+  ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
+  ctx.fillText(`v: ${formatVelocity(obj, PixelPerMeter)} m/s`, obj.x, obj.y + obj.radius + 15);
+}
+
 
 function drawRuler() {
   const rulerX = RulerStartX;
@@ -126,12 +137,12 @@ function drawRuler() {
   }
 }
 
-function drawVelocityArrow(obj, scale = 10){
+function drawVelocityArrow(obj, scale = 10) {
   const vx = obj.vx ?? 0;
   const vy = obj.vy ?? 0;
   const speed = Math.hypot(vx, vy);
 
-  if(speed < 0.1) return; // Don't draw if speed is negligible
+  if (speed < 0.1) return; // Don't draw if speed is negligible
 
   const startX = obj.x;
   const startY = obj.y;
@@ -156,6 +167,8 @@ function drawVelocityArrow(obj, scale = 10){
   ctx.fillStyle = "#ff0000";
   ctx.fill();
 }
+
+
 // Initialize canvas size
 function update() {
   const now = performance.now();
@@ -199,7 +212,11 @@ function update() {
   }
 
   for (let o of objects) {
-    drawObject(o);
+    if (currentLesson === "kinematics") {
+      drawKinematicsObject(o);
+    } else {
+      drawObject(o);
+    }
     drawVelocityArrow(o);
   }
   requestAnimationFrame(update);
@@ -231,7 +248,7 @@ function updateLessonUI() {
     desc.innerHTML = "This lesson demonstrates the effect of gravity on objects. You can add objects to the canvas and see how they fall under the influence of gravity.";
     controls.innerHTML = `
       <div id="freefall-controls">
-        <button onclick="spawnBall()">Spawn Ball</button>
+        <button onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
         <button onclick="clearCanvas()">Clear</button>
         Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
         Initial Velocity: <input id="initVel" type="number" value="0" step="0.5" style="width: 60px" />
@@ -247,9 +264,15 @@ function updateLessonUI() {
     desc.innerHTML = "This screen demonstrates velocity and acceleration without forces.";
     controls.innerHTML = `
       <div id="kinematics-controls">
-        <button onclick="spawnBall()">Spawn Right-Moving Ball</button>
-        Initial Velocity: <input id="initVel" type="number" value="3" step="0.5" style="width: 60px" />
-      </div>
+        <button onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
+        <button onclick="clearCanvas()">Clear</button>
+        Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
+        Acceleration X: <input id="accelX" type="number" value="0" step="0.5" style="width: 60px" />
+        Acceleration Y: <input id="accelY" type="number" value="0" step="0.5" style="width: 60px" />
+        </div>
     `;
   }
 
@@ -311,7 +334,8 @@ const desc = document.getElementById("lesson-description");
 desc.innerHTML = "<em>Click a lesson button to start!</em>";
 
 
-window.spawnBall = spawnBall;
+window.spawnBallFreeFallWrapper = spawnBallFreeFallWrapper;
+window.spawnBallKinematicsWrapper = spawnBallKinematicsWrapper;
 window.clearCanvas = clearCanvas;
 window.switchLesson = switchLesson;
 window.togglePause = togglePause;

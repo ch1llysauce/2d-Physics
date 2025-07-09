@@ -1,4 +1,3 @@
-
 export function applyPhysics(obj, options = {}, allObjects = []) {
     const {
         gravity = 9.8,
@@ -30,14 +29,14 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
         }
 
         //Forces logic
-        if(currentLesson === "forces") {
-            const{ ax, ay } = getAccelerationFromForce(obj);
+        if (currentLesson === "forces") {
+            const { ax, ay } = getAccelerationFromForce(obj);
 
             obj.vx += ax * deltaTime;
             obj.vy += ay * deltaTime;
 
-            if(obj.useGravity) {
-                obj.vy +=  gravity * deltaTime;
+            if (obj.useGravity) {
+                obj.vy += gravity * deltaTime;
             }
         }
 
@@ -220,7 +219,7 @@ export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects,
 }
 
 export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
-     force = null, mass = null, angle = null, useGravity = true) {
+    force = null, mass = null, angle = null, useGravity = true) {
     const forceInput = document.getElementById("force");
     const massInput = document.getElementById("mass");
     const angleInput = document.getElementById("angle");
@@ -237,7 +236,7 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
     vy = vy !== null ? vy : (initVelYInput ? -parseFloat(initVelYInput.value) * PixelPerMeter : 0);
 
     const initXMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter);
+    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter) + objects.length * 30;
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
@@ -254,19 +253,23 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
         mass: mass !== null ? mass : (massInput ? parseFloat(massInput.value) : 1),
         angle: angle !== null ? angle : (angleInput ? parseFloat(angleInput.value) * Math.PI / 180 : 0),
         useGravity: useGravity !== null ? useGravity : (useGravityInput ? useGravityInput.checked : true)
+
     });
 }
 
 export function getAccelerationFromForce(obj) {
-  if (!obj.force || !obj.mass || obj.mass === 0) {
-    return { ax: 0, ay: 0 }; // Prevent divide-by-zero
-  }
+    const mass = obj.mass ?? 1;
+    const force = obj.force ?? 0;
 
-  const angle = obj.angle ?? 0; // Radians
-  const acceleration = obj.force / obj.mass;
+    if (!Number.isFinite(force) || !Number.isFinite(mass) || mass === 0) {
+        return { ax: 0, ay: 0 }; // Prevent divide-by-zero or NaNs
+    }
 
-  return {
-    ax: acceleration * Math.cos(angle),
-    ay: acceleration * Math.sin(angle),
-  };
+    const angle = obj.angle ?? 0;
+    const acceleration = force / mass;
+
+    return {
+        ax: acceleration * Math.cos(angle),
+        ay: acceleration * Math.sin(angle),
+    };
 }

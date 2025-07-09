@@ -116,18 +116,8 @@ function drawForcesObject(obj) {
   ctx.fillText(`v: ${formatVelocity(obj, PixelPerMeter)} m/s`, obj.x, obj.y + obj.radius + 15);
 
   const { ax, ay } = getAccelerationFromForce(obj);
-  const aMagnitude = Math.hypot(ax, ay).toFixed(2);
-  ctx.fillText(`a: ${aMagnitude} m/s²`, obj.x, obj.y + obj.radius + 30);
-}
-
-function applyForce() {
-  const force = parseFloat(document.getElementById("force")?.value || 10);
-  const angle = parseFloat(document.getElementById("angle")?.value || 0) * Math.PI / 180;
-
-  for (let obj of objects) {
-    obj.force = force;
-    obj.angle = angle;
-  }
+  //const aMagnitude = Math.hypot(ax, ay).toFixed(2);
+  //ctx.fillText(`a: ${aMagnitude} m/s²`, obj.x, obj.y + obj.radius + 30);
 }
 
 
@@ -281,6 +271,8 @@ function switchLesson(lesson) {
     const isActive = btn.getAttribute('data-lesson') === lesson;
     btn.classList.toggle('active', isActive);
   });
+
+  requestAnimationFrame(update);
 }
 
 function updateLessonUI() {

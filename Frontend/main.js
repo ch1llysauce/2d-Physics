@@ -1,4 +1,4 @@
-import { applyPhysics, spawnBallFreeFall, spawnBallKinematics, spawnBallForces, getAccelerationFromForce } from "./physics.js";
+import { applyPhysics, spawnBallFreeFall, spawnBallKinematics, spawnBallForces, spawnBallFriction, getAccelerationFromForce } from "./physics.js";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -34,8 +34,9 @@ function spawnBallKinematicsWrapper() {
 function spawnBallForcesWrapper() {
   spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects);
 }
-function spawnSlidingBox() {
-  objects.push({ x: 100, y: 300, vx: 2, vy: 0, w: 40, h: 20 }); //width and height of 40 and 20 for the box
+
+function spawnBallFrictionWrapper(){
+  spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
 function clearCanvas() {
@@ -77,14 +78,6 @@ function drawKinematicsObject(obj) {
 
   const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
   const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
-  function formatVelocity(obj, PixelPerMeter) {
-    const vy = obj.vy ?? 0;
-    const vx = obj.vx ?? 0;
-    const speed = Math.hypot(vx, vy) / PixelPerMeter;
-
-    return (vy > 0 ? -speed : speed).toFixed(2);
-  }
-
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -104,12 +97,6 @@ function drawForcesObject(obj) {
   const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
   const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
 
-  function formatVelocity(obj, PixelPerMeter) {
-    const vy = obj.vy ?? 0;
-    const vx = obj.vx ?? 0;
-    const speed = Math.hypot(vx, vy) / PixelPerMeter;
-    return (vy > 0 ? -speed : speed).toFixed(2);
-  }
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -122,6 +109,36 @@ function drawForcesObject(obj) {
   }
 }
 
+function drawFrictionObject(obj) {
+  ctx.beginPath();
+  ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
+  ctx.fillStyle = "#000000"; // Different color for Friction
+  ctx.fill();
+
+  ctx.fillStyle = "#000";
+  ctx.font = "12px Arial";
+  ctx.textAlign = "center";
+
+  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
+
+  ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
+  ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
+  ctx.fillText(`v: ${formatVelocity(obj, PixelPerMeter)} m/s`, obj.x, obj.y + obj.radius + 15);
+
+  const { ax, ay } = getAccelerationFromForce(obj);
+  if (Number.isFinite(ax) && Number.isFinite(ay)) {
+    const aMagnitude = Math.hypot(ax, ay).toFixed(2);
+    ctx.fillText(`a: ${aMagnitude} m/s²`, obj.x, obj.y + obj.radius + 30);
+  }
+}
+
+function formatVelocity(obj, PixelPerMeter) {
+  const vy = obj.vy ?? 0;
+  const vx = obj.vx ?? 0;
+  const speed = Math.hypot(vx, vy) / PixelPerMeter;
+  return (vy > 0 ? -speed : speed).toFixed(2);
+}
 
 function drawRuler() {
   const rulerX = RulerStartX;
@@ -203,7 +220,6 @@ function drawVelocityArrow(obj, scale = 10) {
   ctx.fill();
 }
 
-
 // Initialize canvas size
 function update() {
   const now = performance.now();
@@ -251,6 +267,8 @@ function update() {
       drawKinematicsObject(o);
     } else if (currentLesson === "forces") {
       drawForcesObject(o);
+    } else if (currentLesson === "friction") {
+      drawFrictionObject(o);
     } else {
       drawObject(o);
     }
@@ -339,12 +357,16 @@ function updateLessonUI() {
     desc.innerHTML = "This lesson demonstrates the effect of friction on objects. You can add objects and apply forces to see how they move with friction.";
     controls.innerHTML = `
       <div id="friction-controls">
-        <button onclick="spawnBall()">Spawn Ball</button>
-        <button onclick="applyForce()">Apply Force</button>
-        Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
+        <button onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
+        <button onclick="clearCanvas()">Clear</button>
         Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
-        Angle: <input id="angle" type="number" value="0" step="1" style="width: 60px" />
-        Friction Coefficient: <input id="friction" type="number" value="0.5" step="0.01" style="width: 60px" />
+        Friction Coefficient: <input id="friction" type="number" value="0.5" step="0.01" min="0" max="1" style="width: 60px" />
+        <br/><br/>
+        Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
+        Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
+        Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+        Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
       </div>
     `;
   }
@@ -369,6 +391,7 @@ function updateLessonUI() {
   window.spawnBallFreeFallWrapper = spawnBallFreeFallWrapper;
   window.spawnBallKinematicsWrapper = spawnBallKinematicsWrapper;
   window.spawnBallForcesWrapper = spawnBallForcesWrapper;
+  window.spawnBallFrictionWrapper = spawnBallFrictionWrapper;
   window.clearCanvas = clearCanvas;
   window.switchLesson = switchLesson;
   window.togglePause = togglePause;
@@ -384,13 +407,5 @@ document.querySelectorAll('#nav button').forEach(btn => {
 
 const desc = document.getElementById("lesson-description");
 desc.innerHTML = "<em>Click a lesson button to start!</em>";
-
-
-window.spawnBallFreeFallWrapper = spawnBallFreeFallWrapper;
-window.spawnBallKinematicsWrapper = spawnBallKinematicsWrapper;
-window.spawnBallForcesWrapper = spawnBallForcesWrapper;
-window.clearCanvas = clearCanvas;
-window.switchLesson = switchLesson;
-window.togglePause = togglePause;
 
 update();

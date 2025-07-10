@@ -42,8 +42,32 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
 
         // Friction logic
         if (currentLesson === "friction") {
-            obj.vx *= 1 - friction * deltaTime;
-            obj.vy *= 1 - friction * deltaTime;
+            const gravityVal = obj.gravity ?? gravity;
+            const mu = obj.friction ?? friction;
+            const mass = obj.mass ?? 1;
+
+            const radiusOrHalfHeight = obj.radius || obj.h / 2;
+            const bottom = obj.y + radiusOrHalfHeight;
+            
+            if (bottom >= canvasHeight - 1) {
+                obj.isOnGround = true;
+            }
+
+            if(obj.isOnGround) {
+                const normalForce = mass * gravityVal;
+                const frictionForce = mu * normalForce;
+                const frictionAccel = frictionForce / mass;
+
+                if (Math.abs(obj.vx) < frictionAccel * deltaTime) {
+                    obj.vx = 0;
+                } else {
+                    obj.vx -= Math.sign(obj.vx) * frictionAccel * deltaTime;
+                }
+            }
+
+            if(obj.vy !== 0){
+                obj.vy += gravityVal * deltaTime;
+            }
         }
 
         // Position update
@@ -257,6 +281,45 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
             : (useGravityInput ? useGravityInput.checked : true)
 
 
+    });
+}
+
+export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
+    mass = null, friction = null) {
+    
+    const massInput = document.getElementById("mass");
+    const frictionInput = document.getElementById("friction");
+    const gravityInput = document.getElementById("gravity"); 
+
+    const initVelXInput = document.getElementById("initVelX");
+    const initVelYInput = document.getElementById("initVelY");
+    const initXInput = document.getElementById("initX");
+    const initYInput = document.getElementById("initY");
+
+    const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8; 
+
+    const radius = 20;
+
+    vx = vx !== null ? vx : (initVelXInput ? parseFloat(initVelXInput.value) * PixelPerMeter : 0);
+    vy = vy !== null ? vy : (initVelYInput ? -parseFloat(initVelYInput.value) * PixelPerMeter : 0);
+
+    const initXMeters = initXInput ? parseFloat(initXInput.value) : 0;
+    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter);
+    x = Math.max(radius, Math.min(canvas.width - radius, x));
+
+    const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
+    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter);
+    y = Math.min(canvas.height - radius, Math.max(radius, y));
+
+    objects.push({
+        x,
+        y,
+        vx,
+        vy,
+        radius,
+        mass: mass !== null ? mass : (massInput ? parseFloat(massInput.value) : 1),
+        gravity: gravityVal, 
+        friction: friction !== null ? friction : (frictionInput ? parseFloat(frictionInput.value) : 0.1)
     });
 }
 

@@ -1,4 +1,4 @@
-import { applyPhysics, spawnBallFreeFall, spawnBallKinematics, spawnBallForces } from "./physics.js";
+import { applyPhysics, spawnBallFreeFall, spawnBallKinematics, spawnBallForces, getAccelerationFromForce } from "./physics.js";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -116,8 +116,10 @@ function drawForcesObject(obj) {
   ctx.fillText(`v: ${formatVelocity(obj, PixelPerMeter)} m/s`, obj.x, obj.y + obj.radius + 15);
 
   const { ax, ay } = getAccelerationFromForce(obj);
-  //const aMagnitude = Math.hypot(ax, ay).toFixed(2);
-  //ctx.fillText(`a: ${aMagnitude} m/s²`, obj.x, obj.y + obj.radius + 30);
+  if (Number.isFinite(ax) && Number.isFinite(ay)) {
+    const aMagnitude = Math.hypot(ax, ay).toFixed(2);
+    ctx.fillText(`a: ${aMagnitude} m/s²`, obj.x, obj.y + obj.radius + 30);
+  }
 }
 
 
@@ -320,7 +322,7 @@ function updateLessonUI() {
         <button onclick="spawnBallForcesWrapper()">Spawn Ball</button>
         <button onclick="clearCanvas()">Clear</button>
         Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
-        Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
+        Mass: <input id="mass" type="number" value="1" step="0.1" min="0" style="width: 60px" />
         Angle: <input id="angle" type="number" value="0" step="1" style="width: 60px" />
         <br/><br/>
         Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />

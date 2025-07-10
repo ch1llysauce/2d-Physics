@@ -13,7 +13,7 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
     // Only apply motion (Stage 1)
     if (skipCollision) {
         // Gravity (not for kinematics)
-        if (currentLesson !== "kinematics" && !obj.restingOn) {
+        if (currentLesson !== "kinematics" && currentLesson !== "forces" && !obj.restingOn) {
             obj.vy += (obj.gravity ?? gravity) * deltaTime;
         }
 
@@ -35,7 +35,7 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
             obj.vx += ax * deltaTime;
             obj.vy += ay * deltaTime;
 
-            if (obj.useGravity) {
+            if (obj.useGravity === true) {
                 obj.vy += gravity * deltaTime;
             }
         }
@@ -51,7 +51,7 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
         obj.y += obj.vy * deltaTime;
 
         // Floor collision
-        if (currentLesson !== "kinematics") {
+        if (currentLesson !== "kinematics" && (currentLesson !== "forces" || obj.useGravity === true)) {
             const radiusOrHalfHeight = obj.radius || obj.h / 2;
             const bottom = obj.y + radiusOrHalfHeight;
 
@@ -219,7 +219,7 @@ export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects,
 }
 
 export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
-    force = null, mass = null, angle = null, useGravity = true) {
+    force = null, mass = null, angle = null, useGravity = null) {
     const forceInput = document.getElementById("force");
     const massInput = document.getElementById("mass");
     const angleInput = document.getElementById("angle");
@@ -236,7 +236,7 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
     vy = vy !== null ? vy : (initVelYInput ? -parseFloat(initVelYInput.value) * PixelPerMeter : 0);
 
     const initXMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter) + objects.length * 30;
+    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter);
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
@@ -252,7 +252,10 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
         force: force !== null ? force : (forceInput ? parseFloat(forceInput.value) : 10),
         mass: mass !== null ? mass : (massInput ? parseFloat(massInput.value) : 1),
         angle: angle !== null ? angle : (angleInput ? parseFloat(angleInput.value) * Math.PI / 180 : 0),
-        useGravity: useGravity !== null ? useGravity : (useGravityInput ? useGravityInput.checked : true)
+        useGravity: useGravity !== null && useGravity !== undefined
+            ? useGravity
+            : (useGravityInput ? useGravityInput.checked : true)
+
 
     });
 }
@@ -261,7 +264,7 @@ export function getAccelerationFromForce(obj) {
     const mass = obj.mass ?? 1;
     const force = obj.force ?? 0;
 
-    if (!Number.isFinite(force) || !Number.isFinite(mass) || mass === 0) {
+    if (!Number.isFinite(force) || !Number.isFinite(mass) || mass <= 0) {
         return { ax: 0, ay: 0 }; // Prevent divide-by-zero or NaNs
     }
 
@@ -270,6 +273,6 @@ export function getAccelerationFromForce(obj) {
 
     return {
         ax: acceleration * Math.cos(angle),
-        ay: acceleration * Math.sin(angle),
+        ay: -acceleration * Math.sin(angle),
     };
 }

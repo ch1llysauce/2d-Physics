@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
     <title>2D Physics Engine</title>
     <link rel="stylesheet" href="style.css" />
 </head>
@@ -22,7 +22,13 @@
 
     <div id="lesson-description"></div>
     <div id="controls"></div>
-    <canvas id="canvas" width="800" height="400"></canvas>
+    
+    <div class="canvas-wrapper">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="rotate-hint">Rotate your device horizontally for a better view.</div>
+
 
     <script type="module" src="main.js"></script>
 

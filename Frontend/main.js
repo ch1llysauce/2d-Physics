@@ -1,10 +1,27 @@
-import { drawObject, drawKinematicsObject, drawForcesObject, drawFrictionObject, drawWorkEnergyObject, formatVelocity, drawRuler, drawVelocityArrow } from "./draw.js";
+import { drawObject, drawKinematicsObject, drawForcesObject, drawFrictionObject, drawWorkEnergyObject, drawRuler, drawVelocityArrow } from "./draw.js";
 import { applyPhysics, spawnBallFreeFall, spawnBallKinematics, spawnBallForces, spawnBallFriction, spawnBallWorkEnergy } from "./physics.js";
 const PixelPerMeter = 20;
 const RulerStartX = 30;
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  const width = wrapper.clientWidth;
+  const height = width / 2; // 2:1 aspect ratio
+
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
 let objects = [];
 let currentLesson = null;
@@ -145,7 +162,7 @@ function updateLessonUI() {
           <br/><br/>
           Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
           Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
-          Restitution (0-1): <input id="restitution" type="number" value="0.8" step="0.1" min="0" max="1" />
+          Restitution (0-1): <input id="restitution" type="number" value="0.8" step="0.1" min="0" max="1" style="width: 60px" />
           </div>
       `;
   }
@@ -183,7 +200,9 @@ function updateLessonUI() {
           Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
           Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
           <br/><br/>
-          <label><input type="checkbox" id="useGravity" checked /> Use Gravity</label>
+          <div class="center-checkbox">
+          <label for="useGravity"><input type="checkbox" id="useGravity" checked /> Use Gravity</label>
+          </div>
         </div>
         `;
   }

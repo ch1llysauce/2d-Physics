@@ -48,12 +48,12 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
 
             const radiusOrHalfHeight = obj.radius || obj.h / 2;
             const bottom = obj.y + radiusOrHalfHeight;
-            
+
             if (bottom >= canvasHeight - 1) {
                 obj.isOnGround = true;
             }
 
-            if(obj.isOnGround) {
+            if (obj.isOnGround) {
                 const normalForce = mass * gravityVal;
                 const frictionForce = mu * normalForce;
                 const frictionAccel = frictionForce / mass;
@@ -65,9 +65,14 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
                 }
             }
 
-            if(obj.vy !== 0){
+            if (obj.vy !== 0) {
                 obj.vy += gravityVal * deltaTime;
             }
+        }
+
+        // Work-Energy logic
+        if (currentLesson === "workEnergy") {
+            obj.vy += (obj.gravity ?? gravity) * deltaTime;
         }
 
         // Position update
@@ -197,6 +202,8 @@ export function spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects, x
     const gravityInput = document.getElementById("gravity");
     const restitutionInput = document.getElementById("restitution");
 
+    const radius = 20;
+
     const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8;
     const restitutionVal = restitutionInput ? parseFloat(restitutionInput.value) : 0.8;
 
@@ -204,14 +211,14 @@ export function spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects, x
     vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) : 0);
 
     const heightMeters = heightInput ? parseFloat(heightInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter);
+    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter) - radius;
     y = Math.max(0, Math.min(canvas.height - 20, y)); // clamp to canvas bounds 
 
     const xMeters = initXInput ? parseFloat(initXInput.value) : 0;
     x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter);
     x = Math.max(20, Math.min(canvas.width - 20, x)); // clamp to canvas bounds
 
-    objects.push({ x, y, vx, vy, radius: 20, gravity: gravityVal, restitution: restitutionVal });
+    objects.push({ x, y, vx, vy, radius, gravity: gravityVal, restitution: restitutionVal });
 }
 
 export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
@@ -236,7 +243,7 @@ export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects,
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter);
+    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter) - radius;
     y = Math.min(canvas.height - radius, Math.max(radius, y));
 
     objects.push({ x, y, vx, vy, radius, accelX, accelY });
@@ -265,7 +272,7 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
     y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter);
-    y = Math.min(canvas.height - radius, Math.max(radius, y));
+    y = Math.min(canvas.height - radius, Math.max(radius, y)) - radius;
 
     objects.push({
         x,
@@ -286,17 +293,17 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x =
 
 export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
     mass = null, friction = null) {
-    
+
     const massInput = document.getElementById("mass");
     const frictionInput = document.getElementById("friction");
-    const gravityInput = document.getElementById("gravity"); 
+    const gravityInput = document.getElementById("gravity");
 
     const initVelXInput = document.getElementById("initVelX");
     const initVelYInput = document.getElementById("initVelY");
     const initXInput = document.getElementById("initX");
     const initYInput = document.getElementById("initY");
 
-    const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8; 
+    const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8;
 
     const radius = 20;
 
@@ -308,7 +315,7 @@ export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects, x
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter);
+    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter) - radius;
     y = Math.min(canvas.height - radius, Math.max(radius, y));
 
     objects.push({
@@ -318,8 +325,45 @@ export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects, x
         vy,
         radius,
         mass: mass !== null ? mass : (massInput ? parseFloat(massInput.value) : 1),
-        gravity: gravityVal, 
+        gravity: gravityVal,
         friction: friction !== null ? friction : (frictionInput ? parseFloat(frictionInput.value) : 0.1)
+    });
+}
+
+export function spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null) {
+
+    const massInput = document.getElementById("mass");
+    const gravityInput = document.getElementById("gravity");
+    const initXInput = document.getElementById("initX");
+    const heightInput = document.getElementById("initHeight");
+    const restitutionInput = document.getElementById("restitution");
+    const initVelXInput = document.getElementById("initVelX");
+    const initVelYInput = document.getElementById("initVelY");
+    const radius = 20;
+
+    const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8;
+    const restitutionVal = restitutionInput ? parseFloat(restitutionInput.value) : 0.8;
+
+    const xMeters = initXInput ? parseFloat(initXInput.value) : 0;
+    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter);
+    x = Math.max(radius, Math.min(canvas.width - radius, x)); // clamp to canvas bounds
+
+    const heightMeters = heightInput ? parseFloat(heightInput.value) : 2.5;
+    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter) - radius;
+    y = Math.max(radius, Math.min(canvas.height - radius, y)); // clamp to canvas bounds
+
+    vx = vx !== null ? vx : (initVelXInput ? parseFloat(initVelXInput.value) * PixelPerMeter : 0);
+    vy = vy !== null ? vy : (initVelYInput ? -parseFloat(initVelYInput.value) * PixelPerMeter : 0);
+
+    objects.push({
+        x,
+        y,
+        vx,
+        vy,
+        radius,
+        mass: massInput ? parseFloat(massInput.value) : 1,
+        gravity: gravityVal,
+        restitution: restitutionVal
     });
 }
 

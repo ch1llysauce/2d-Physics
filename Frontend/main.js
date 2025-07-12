@@ -28,6 +28,11 @@ let currentLesson = null;
 let lastTime = performance.now();
 let isPaused = false;
 
+let zoomLevel = 1;
+const minZoom = 0.5;
+const maxZoom = 2.5;
+const zoomStep = 0.1;
+
 function togglePause() {
   isPaused = !isPaused;
   const pauseBtn = document.getElementById("pauseBtn");
@@ -40,24 +45,34 @@ function togglePause() {
   }
 }
 
+function zoomIn() {
+  zoomLevel = Math.max(minZoom, (zoomLevel + zoomStep).toFixed(2));
+}
+
+function zoomOut() {
+
+  zoomLevel = Math.min(maxZoom, (zoomLevel - zoomStep).toFixed(2));
+}
+
+
 function spawnBallFreeFallWrapper() {
-  spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects);
+  spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects);
 }
 
 function spawnBallKinematicsWrapper() {
-  spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects);
+  spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects);
 }
 
 function spawnBallForcesWrapper() {
-  spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects);
+  spawnBallForces(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects);
 }
 
 function spawnBallFrictionWrapper() {
-  spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects);
+  spawnBallFriction(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects);
 }
 
 function spawnBallWorkEnergyWrapper() {
-  spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects);
+  spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects);
 }
 
 function clearCanvas() {
@@ -69,13 +84,23 @@ function clearCanvas() {
 
 // Initialize canvas size
 function update() {
+  zoomLevel = Math.min(maxZoom, Math.max(minZoom, zoomLevel));
+
   const now = performance.now();
   let deltaTime = (now - lastTime) / 1000;
   lastTime = now;
   deltaTime = Math.min(deltaTime, 0.05)
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);   // Step 1: Reset
+  ctx.clearRect(0, 0, canvas.width, canvas.height); // Step 2: Clear
+  drawRuler(ctx, canvas, PixelPerMeter, RulerStartX, zoomLevel); // Step 3: Draw ruler
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);   // Step 4: Reset again
+  ctx.translate(canvas.width / 2, canvas.height / 2); // Step 5: Zoom
+  ctx.scale(zoomLevel, zoomLevel);
+  ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
 
 
   if (!currentLesson) {
@@ -124,6 +149,7 @@ function update() {
     }
     drawVelocityArrow(ctx, o);
   }
+  ctx.restore();
   requestAnimationFrame(update);
 
 }
@@ -154,98 +180,98 @@ function updateLessonUI() {
   if (currentLesson === "freefall") {
     desc.innerHTML = "This lesson demonstrates the effect of gravity on objects. You can add objects to the canvas and see how they fall under the influence of gravity.";
     controls.innerHTML = `
-        <div id="freefall-controls">
-          <button onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
-          Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-          Initial Velocity: <input id="initVel" type="number" value="0" step="0.5" style="width: 60px" />
-          <br/><br/>
-          Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
-          Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
-          Restitution (0-1): <input id="restitution" type="number" value="0.8" step="0.1" min="0" max="1" style="width: 60px" />
-          </div>
-      `;
+          <div id="freefall-controls">
+            <button onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
+            <button onclick="clearCanvas()">Clear</button>
+            Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+            Initial Velocity: <input id="initVel" type="number" value="0" step="0.5" style="width: 60px" />
+            <br/><br/>
+            Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
+            Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
+            Restitution (0-1): <input id="restitution" type="number" value="0.8" step="0.1" min="0" max="1" style="width: 60px" />
+            </div>
+        `;
   }
 
   if (currentLesson === "kinematics") {
 
     desc.innerHTML = "This screen demonstrates velocity and acceleration without forces.";
     controls.innerHTML = `
-        <div id="kinematics-controls">
-          <button onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
-          Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
-          <br/><br/>
-          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
-          Acceleration X: <input id="accelX" type="number" value="0" step="0.5" style="width: 60px" />
-          Acceleration Y: <input id="accelY" type="number" value="0" step="0.5" style="width: 60px" />
-          </div>
-      `;
+          <div id="kinematics-controls">
+            <button onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
+            <button onclick="clearCanvas()">Clear</button>
+            Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+            <br/><br/>
+            Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
+            Acceleration X: <input id="accelX" type="number" value="0" step="0.5" style="width: 60px" />
+            Acceleration Y: <input id="accelY" type="number" value="0" step="0.5" style="width: 60px" />
+            </div>
+        `;
   }
 
   if (currentLesson === "forces") {
     desc.innerHTML = "This lesson demonstrates Newton's Second Law: how force, mass, and angle affect an object's acceleration and motion.";
     controls.innerHTML = `
-        <div id="forces-controls">
-          <button onclick="spawnBallForcesWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
-          Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
-          Mass: <input id="mass" type="number" value="1" step="0.1" min="0" style="width: 60px" />
-          Angle: <input id="angle" type="number" value="0" step="1" style="width: 60px" />
-          <br/><br/>
-          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
-          <br/><br/>
-          <div class="center-checkbox">
-          <label for="useGravity"><input type="checkbox" id="useGravity" checked /> Use Gravity</label>
+          <div id="forces-controls">
+            <button onclick="spawnBallForcesWrapper()">Spawn Ball</button>
+            <button onclick="clearCanvas()">Clear</button>
+            Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
+            Mass: <input id="mass" type="number" value="1" step="0.1" min="0" style="width: 60px" />
+            Angle: <input id="angle" type="number" value="0" step="1" style="width: 60px" />
+            <br/><br/>
+            Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+            <br/><br/>
+            <div class="center-checkbox">
+            <label for="useGravity"><input type="checkbox" id="useGravity" checked /> Use Gravity</label>
+            </div>
           </div>
-        </div>
-        `;
+          `;
   }
 
   if (currentLesson === "friction") {
     desc.innerHTML = "This lesson demonstrates the effect of friction on objects. You can add objects and apply forces to see how they move with friction.";
     controls.innerHTML = `
-        <div id="friction-controls">
-          <button onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
-          Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
-          Friction Coefficient: <input id="friction" type="number" value="0.5" step="0.01" min="0" max="1" style="width: 60px" />
-          <br/><br/>
-          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
-          Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-        </div>
-      `;
+          <div id="friction-controls">
+            <button onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
+            <button onclick="clearCanvas()">Clear</button>
+            Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
+            Friction Coefficient: <input id="friction" type="number" value="0.5" step="0.01" min="0" max="1" style="width: 60px" />
+            <br/><br/>
+            Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+            Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+          </div>
+        `;
   }
 
   if (currentLesson === "workEnergy") {
     desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
     controls.innerHTML = `
-      <div id="work-energy-controls">
-      <button onclick="spawnBallWorkEnergyWrapper()">Spawn Energy Ball</button>
-      <button onclick="clearCanvas()">Clear</button>
-      Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
-      Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-      Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
-      Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
-      <br/><br/>
-      Restitution: <input id="restitution" type="number" value="0.8" step="0.1" style="width: 60px" />
-      Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
-      Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
-      </div>
-      `;
+        <div id="work-energy-controls">
+        <button onclick="spawnBallWorkEnergyWrapper()">Spawn Energy Ball</button>
+        <button onclick="clearCanvas()">Clear</button>
+        Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
+        Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+        Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
+        Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
+        <br/><br/>
+        Restitution: <input id="restitution" type="number" value="0.8" step="0.1" style="width: 60px" />
+        Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
+        </div>
+        `;
   }
 
   controls.innerHTML += `
-    <button onclick="togglePause()" id="pauseBtn" class="button">Pause</button>
-  `;
+      <button onclick="togglePause()" id="pauseBtn" class="button">Pause</button>
+    `;
 
   window.spawnBallFreeFallWrapper = spawnBallFreeFallWrapper;
   window.spawnBallKinematicsWrapper = spawnBallKinematicsWrapper;
@@ -256,6 +282,10 @@ function updateLessonUI() {
   window.clearCanvas = clearCanvas;
   window.switchLesson = switchLesson;
   window.togglePause = togglePause;
+
+  window.zoomIn = zoomIn;
+  window.zoomOut = zoomOut;
+
 }
 
 

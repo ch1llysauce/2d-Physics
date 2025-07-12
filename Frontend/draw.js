@@ -1,24 +1,21 @@
 import { getAccelerationFromForce } from "./physics.js";
 
 export function drawObject(ctx, obj, PixelPerMeter, canvas) {
-  ctx.beginPath();
-  if (obj.radius) {
+    ctx.beginPath();
     ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
-  } else {
-    ctx.rect(obj.x, obj.y, obj.w, obj.h);
-  }
+    ctx.fillStyle = "#0077cc";
+    ctx.fill();
 
-  ctx.fillStyle = "#0077cc";
-  ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
 
-  const heightMeters = (((canvas.height - obj.y) / PixelPerMeter) - 1).toFixed(2);
-  ctx.fillStyle = "#000";
-  ctx.font = "12px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText(`${heightMeters}m`, obj.x, obj.y - (obj.radius || obj.h / 2) - 5);
+    const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
+    const heightMeters = ((canvas.height - obj.y - obj.radius) / effectivePPM).toFixed(2);
 
-  const vy = (obj.vy ?? 0).toFixed(2);
-  ctx.fillText(`v: ${-vy} m/s`, obj.x, obj.y + (obj.radius || obj.h / 2) + 15);
+    ctx.fillText(`${heightMeters}m`, obj.x, obj.y - obj.radius - 5);
+    const vy = ((obj.vy ?? 0) / effectivePPM).toFixed(2);
+    ctx.fillText(`v: ${-vy} m/s`, obj.x, obj.y + obj.radius + 15);
 }
 
 export function drawKinematicsObject(ctx, obj, PixelPerMeter) {
@@ -31,9 +28,10 @@ export function drawKinematicsObject(ctx, obj, PixelPerMeter) {
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
 
-  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
-  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
-  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
+   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
+  const vx = ((obj.vx ?? 0) / effectivePPM).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / effectivePPM).toFixed(2);
+  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -50,9 +48,10 @@ export function drawForcesObject(ctx, obj, PixelPerMeter) {
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
 
-  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
-  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
-  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
+   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
+  const vx = ((obj.vx ?? 0) / effectivePPM).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / effectivePPM).toFixed(2);
+  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -75,9 +74,10 @@ export function drawFrictionObject(ctx, obj, PixelPerMeter) {
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
 
-  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
-  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
-  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
+  const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
+  const vx = ((obj.vx ?? 0) / effectivePPM).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / effectivePPM).toFixed(2);
+  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -103,11 +103,12 @@ export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
   const mass = obj.mass ?? 1;
   const gravityVal = obj.gravity ?? 9.8;
   
-  let height = (canvas.height - obj.y - (obj.radius || obj.h / 2)) / PixelPerMeter;
+   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
+  let height = (canvas.height - obj.y - (obj.radius || obj.h / 2)) / effectivePPM;
   if (height < 0.05) height = 0;
 
   
-  const velocity = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
+  const velocity = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
 
   const pe = (mass * gravityVal * height).toFixed(2);
   const ke = (0.5 * mass * velocity ** 2).toFixed(2);
@@ -118,7 +119,7 @@ export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
   ctx.fillText(`E: ${totalE} J`, obj.x, obj.y + obj.radius + 15);
 }
 
-export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX) {
+export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX, zoomLevel = 1) {
   const rulerX = RulerStartX;
   const rulerY = canvas.height - 30;
   const interval = 50;
@@ -128,43 +129,51 @@ export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX) {
   ctx.fillStyle = "#000";
   ctx.font = "12px sans-serif";
 
-  // Vertical Ruler
+  const effectivePPM = PixelPerMeter * zoomLevel;
+
+  // === Vertical Ruler (Y-axis, positive meters only) ===
   ctx.beginPath();
   ctx.moveTo(rulerX, 0);
   ctx.lineTo(rulerX, canvas.height);
   ctx.stroke();
 
-  ctx.textAlign = "right";
-  for (let i = 0; i <= canvas.height; i += 2 * interval) {
+  ctx.textAlign = "center";
+  for (let i = 0; i <= canvas.height; i += interval) {
     const y = canvas.height - i;
-    if (y < 15 || y > canvas.height - 10) continue;
+    const meterValue = i / effectivePPM;
+
+    if (meterValue < 0 || y < 15 || y > canvas.height - 10) continue;
 
     ctx.beginPath();
     ctx.moveTo(rulerX - 5, y);
     ctx.lineTo(rulerX + 5, y);
     ctx.stroke();
 
-    ctx.fillText(`${i / PixelPerMeter}m`, rulerX - 10, y + 4);
+    ctx.fillText(`${meterValue.toFixed(2)}m`, rulerX - 10, y + 4);
   }
 
-  // Horizontal Ruler
+  // === Horizontal Ruler (X-axis, positive meters only) ===
   ctx.beginPath();
   ctx.moveTo(0, rulerY);
   ctx.lineTo(canvas.width, rulerY);
   ctx.stroke();
 
   ctx.textAlign = "center";
-  for (let x = rulerX; x < canvas.width; x += 2 * interval) {
-    if (x < 40 || x > canvas.width - 20) continue;
+  for (let x = rulerX; x < canvas.width; x += interval) {
+    const meterValue = (x - rulerX) / effectivePPM;
+
+    if (meterValue < 0 || x < 40 || x > canvas.width - 20) continue;
 
     ctx.beginPath();
     ctx.moveTo(x, rulerY - 5);
     ctx.lineTo(x, rulerY + 5);
     ctx.stroke();
 
-    ctx.fillText(`${(x - rulerX) / PixelPerMeter}m`, x, rulerY + 20);
+    ctx.fillText(`${meterValue.toFixed(2)}m`, x, rulerY + 20);
   }
 }
+
+
 
 export function drawVelocityArrow(ctx, obj, scale = 10) {
   const vx = obj.vx ?? 0;

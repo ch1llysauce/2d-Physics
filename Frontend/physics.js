@@ -208,18 +208,18 @@ export function spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, zoomLevel,
     const restitutionVal = restitutionInput ? parseFloat(restitutionInput.value) : 0.8;
 
     vx = vx !== null ? vx : 0;
-    vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) : 0);
+    vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) * PixelPerMeter : 0);
 
     
     const heightMeters = heightInput ? parseFloat(heightInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter) - radius;
+    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter * zoomLevel) - radius;
     y = Math.max(0, Math.min(canvas.height - radius, y));
 
     const xMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter);
+    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter * zoomLevel);
     x = Math.max(20, Math.min(canvas.width - radius, x));
 
-    objects.push({ x, y, vx, vy, radius, gravity: gravityVal, restitution: restitutionVal, zoomLevel });
+    objects.push({ x, y, vx, vy, radius, initialHeightMeters: heightMeters, gravity: gravityVal, restitution: restitutionVal, zoomLevel });
 }
 
 export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects, x = null, y = null, vx = null, vy = null,

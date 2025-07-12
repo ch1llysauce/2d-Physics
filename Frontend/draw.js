@@ -10,7 +10,7 @@ export function drawObject(ctx, obj, PixelPerMeter, canvas) {
     ctx.font = "12px Arial";
     ctx.textAlign = "center";
 
-    const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
+    const effectivePPM = PixelPerMeter * (obj.zoomLevel ?? 1);
     const heightMeters = ((canvas.height - obj.y - obj.radius) / effectivePPM).toFixed(2);
 
     ctx.fillText(`${heightMeters}m`, obj.x, obj.y - obj.radius - 5);
@@ -18,7 +18,7 @@ export function drawObject(ctx, obj, PixelPerMeter, canvas) {
     ctx.fillText(`v: ${-vy} m/s`, obj.x, obj.y + obj.radius + 15);
 }
 
-export function drawKinematicsObject(ctx, obj, PixelPerMeter) {
+export function drawKinematicsObject(ctx, obj, PixelPerMeter, canvas) {
   ctx.beginPath();
   ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
   ctx.fillStyle = "#0077cc";
@@ -28,10 +28,10 @@ export function drawKinematicsObject(ctx, obj, PixelPerMeter) {
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
 
-   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
-  const vx = ((obj.vx ?? 0) / effectivePPM).toFixed(2);
-  const vy = ((-obj.vy ?? 0) / effectivePPM).toFixed(2);
-  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
+ 
+  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
+  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -48,10 +48,9 @@ export function drawForcesObject(ctx, obj, PixelPerMeter) {
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
 
-   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
-  const vx = ((obj.vx ?? 0) / effectivePPM).toFixed(2);
-  const vy = ((-obj.vy ?? 0) / effectivePPM).toFixed(2);
-  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
+  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
+  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -75,9 +74,9 @@ export function drawFrictionObject(ctx, obj, PixelPerMeter) {
   ctx.textAlign = "center";
 
   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
-  const vx = ((obj.vx ?? 0) / effectivePPM).toFixed(2);
-  const vy = ((-obj.vy ?? 0) / effectivePPM).toFixed(2);
-  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
+  const vx = ((obj.vx ?? 0) / PixelPerMeter).toFixed(2);
+  const vy = ((-obj.vy ?? 0) / PixelPerMeter).toFixed(2);
+  const speed = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
 
   ctx.fillText(`vx: ${vx} m/s`, obj.x, obj.y - obj.radius - 10);
   ctx.fillText(`vy: ${vy} m/s`, obj.x, obj.y - obj.radius + 5);
@@ -89,6 +88,7 @@ export function drawFrictionObject(ctx, obj, PixelPerMeter) {
     ctx.fillText(`a: ${aMagnitude} m/s²`, obj.x, obj.y + obj.radius + 30);
   }
 }
+
 
 export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
   ctx.beginPath();
@@ -103,20 +103,29 @@ export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
   const mass = obj.mass ?? 1;
   const gravityVal = obj.gravity ?? 9.8;
   
-   const effectivePPM = PixelPerMeter / (obj.zoomLevel ?? 1);
-  let height = (canvas.height - obj.y - (obj.radius || obj.h / 2)) / effectivePPM;
+  // Consistent calculation with other modules (multiply instead of divide)
+  const effectivePPM = PixelPerMeter * (obj.zoomLevel ?? 1);
+  
+  // Height calculation (same as free fall)
+  let height = (canvas.height - obj.y - obj.radius) / effectivePPM;
   if (height < 0.05) height = 0;
 
-  
-  const velocity = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / effectivePPM;
+  // Velocity components (consistent with kinematics)
+  const vx = (obj.vx ?? 0) / effectivePPM;
+  const vy = (obj.vy ?? 0) / effectivePPM;
+  const velocity = Math.hypot(vx, vy);
 
+  // Energy calculations
   const pe = (mass * gravityVal * height).toFixed(2);
   const ke = (0.5 * mass * velocity ** 2).toFixed(2);
   const totalE = (parseFloat(pe) + parseFloat(ke)).toFixed(2);
 
-  ctx.fillText(`PE: ${pe} J`, obj.x, obj.y - obj.radius - 15);
-  ctx.fillText(`KE: ${ke} J`, obj.x, obj.y - obj.radius);
-  ctx.fillText(`E: ${totalE} J`, obj.x, obj.y + obj.radius + 15);
+  // Display layout similar to other modules
+  ctx.fillText(`h: ${height.toFixed(2)}m`, obj.x, obj.y - obj.radius - 20);  // Height at top
+  ctx.fillText(`PE: ${pe} J`, obj.x, obj.y - obj.radius - 5);               // PE next
+  ctx.fillText(`KE: ${ke} J`, obj.x, obj.y - obj.radius + 10);             // KE below
+  ctx.fillText(`E: ${totalE} J`, obj.x, obj.y + obj.radius + 15);          // Total energy at bottom
+  ctx.fillText(`v: ${velocity.toFixed(2)} m/s`, obj.x, obj.y + obj.radius + 30); // Speed at very bottom
 }
 
 export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX, zoomLevel = 1) {
@@ -137,7 +146,7 @@ export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX, zoomLevel = 1
   ctx.lineTo(rulerX, canvas.height);
   ctx.stroke();
 
-  ctx.textAlign = "center";
+  ctx.textAlign = "left";
   for (let i = 0; i <= canvas.height; i += interval) {
     const y = canvas.height - i;
     const meterValue = i / effectivePPM;
@@ -149,7 +158,7 @@ export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX, zoomLevel = 1
     ctx.lineTo(rulerX + 5, y);
     ctx.stroke();
 
-    ctx.fillText(`${meterValue.toFixed(2)}m`, rulerX - 10, y + 4);
+    ctx.fillText(`${meterValue.toFixed(2)}m`, rulerX - 20, y + 4);
   }
 
   // === Horizontal Ruler (X-axis, positive meters only) ===

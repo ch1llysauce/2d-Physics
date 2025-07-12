@@ -78,7 +78,7 @@ function spawnBallWorkEnergyWrapper() {
 function clearCanvas() {
   objects = [];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
+  drawRuler(ctx, canvas, PixelPerMeter, RulerStartX, zoomLevel);
 }
 
 
@@ -137,7 +137,7 @@ function update() {
 
   for (let o of objects) {
     if (currentLesson === "kinematics") {
-      drawKinematicsObject(ctx, o, PixelPerMeter);
+      drawKinematicsObject(ctx, o, PixelPerMeter, canvas);
     } else if (currentLesson === "forces") {
       drawForcesObject(ctx, o, PixelPerMeter);
     } else if (currentLesson === "friction") {

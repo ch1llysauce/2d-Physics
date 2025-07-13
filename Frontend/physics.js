@@ -195,34 +195,33 @@ function handleCircleCollisions(obj, allObjects, options = {}) {
 }
 
 
-export function spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects, x = null, y = null, vx = null, vy = null) {
-    const radius = 20;
-
+export function spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null) {
     const velInput = document.getElementById("initVel");
     const heightInput = document.getElementById("initHeight");
     const initXInput = document.getElementById("initX");
     const gravityInput = document.getElementById("gravity");
     const restitutionInput = document.getElementById("restitution");
 
+    const radius = 20;
+
     const gravityVal = gravityInput ? parseFloat(gravityInput.value) : 9.8;
     const restitutionVal = restitutionInput ? parseFloat(restitutionInput.value) : 0.8;
 
     vx = vx !== null ? vx : 0;
-    vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) * PixelPerMeter : 0);
+    vy = vy !== null ? vy : (velInput ? parseFloat(velInput.value) : 0);
 
-    
     const heightMeters = heightInput ? parseFloat(heightInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter * zoomLevel) - radius;
-    y = Math.max(0, Math.min(canvas.height - radius, y));
+    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter) - radius;
+    y = Math.max(0, Math.min(canvas.height - 20, y)); // clamp to canvas bounds 
 
     const xMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter * zoomLevel);
-    x = Math.max(20, Math.min(canvas.width - radius, x));
+    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter);
+    x = Math.max(20, Math.min(canvas.width - 20, x)); // clamp to canvas bounds
 
-    objects.push({ x, y, vx, vy, radius, initialHeightMeters: heightMeters, gravity: gravityVal, restitution: restitutionVal, zoomLevel });
+    objects.push({ x, y, vx, vy, radius, gravity: gravityVal, restitution: restitutionVal });
 }
 
-export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects, x = null, y = null, vx = null, vy = null,
+export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
     accelX = null, accelY = null) {
 
     const initXInput = document.getElementById("initX");
@@ -240,19 +239,18 @@ export function spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, zoomLeve
     accelY = accelY !== null ? accelY : (accelYInput ? -parseFloat(accelYInput.value) * PixelPerMeter : 0);
 
     const initXMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter * zoomLevel);
+    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter);
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter * zoomLevel) - radius;
+    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter) - radius;
     y = Math.min(canvas.height - radius, Math.max(radius, y));
 
-    objects.push({ x, y, vx, vy, radius, accelX, accelY, zoomLevel });
+    objects.push({ x, y, vx, vy, radius, accelX, accelY });
 }
 
-export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects, x = null, y = null, vx = null, vy = null,
+export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
     force = null, mass = null, angle = null, useGravity = null) {
-
     const forceInput = document.getElementById("force");
     const massInput = document.getElementById("mass");
     const angleInput = document.getElementById("angle");
@@ -269,12 +267,12 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, zoomLevel, o
     vy = vy !== null ? vy : (initVelYInput ? -parseFloat(initVelYInput.value) * PixelPerMeter : 0);
 
     const initXMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter * zoomLevel);
+    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter);
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter * zoomLevel) - radius;
-    y = Math.min(canvas.height - radius, Math.max(radius, y));
+    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter);
+    y = Math.min(canvas.height - radius, Math.max(radius, y)) - radius;
 
     objects.push({
         x,
@@ -287,12 +285,13 @@ export function spawnBallForces(canvas, PixelPerMeter, RulerStartX, zoomLevel, o
         angle: angle !== null ? angle : (angleInput ? parseFloat(angleInput.value) * Math.PI / 180 : 0),
         useGravity: useGravity !== null && useGravity !== undefined
             ? useGravity
-            : (useGravityInput ? useGravityInput.checked : true),
-        zoomLevel
+            : (useGravityInput ? useGravityInput.checked : true)
+
+
     });
 }
 
-export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects, x = null, y = null, vx = null, vy = null,
+export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null,
     mass = null, friction = null) {
 
     const massInput = document.getElementById("mass");
@@ -312,11 +311,11 @@ export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, zoomLevel,
     vy = vy !== null ? vy : (initVelYInput ? -parseFloat(initVelYInput.value) * PixelPerMeter : 0);
 
     const initXMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter * zoomLevel);
+    x = x !== null ? x : RulerStartX + (initXMeters * PixelPerMeter);
     x = Math.max(radius, Math.min(canvas.width - radius, x));
 
     const initYMeters = initYInput ? parseFloat(initYInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter * zoomLevel) - radius;
+    y = y !== null ? y : canvas.height - (initYMeters * PixelPerMeter) - radius;
     y = Math.min(canvas.height - radius, Math.max(radius, y));
 
     objects.push({
@@ -327,12 +326,11 @@ export function spawnBallFriction(canvas, PixelPerMeter, RulerStartX, zoomLevel,
         radius,
         mass: mass !== null ? mass : (massInput ? parseFloat(massInput.value) : 1),
         gravity: gravityVal,
-        friction: friction !== null ? friction : (frictionInput ? parseFloat(frictionInput.value) : 0.1),
-        zoomLevel
+        friction: friction !== null ? friction : (frictionInput ? parseFloat(frictionInput.value) : 0.1)
     });
 }
 
-export function spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, zoomLevel, objects, x = null, y = null, vx = null, vy = null) {
+export function spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null) {
 
     const massInput = document.getElementById("mass");
     const gravityInput = document.getElementById("gravity");
@@ -347,11 +345,11 @@ export function spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, zoomLeve
     const restitutionVal = restitutionInput ? parseFloat(restitutionInput.value) : 0.8;
 
     const xMeters = initXInput ? parseFloat(initXInput.value) : 0;
-    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter * zoomLevel);
+    x = x !== null ? x : RulerStartX + (xMeters * PixelPerMeter);
     x = Math.max(radius, Math.min(canvas.width - radius, x)); // clamp to canvas bounds
 
     const heightMeters = heightInput ? parseFloat(heightInput.value) : 2.5;
-    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter * zoomLevel) - radius;
+    y = y !== null ? y : canvas.height - (heightMeters * PixelPerMeter) - radius;
     y = Math.max(radius, Math.min(canvas.height - radius, y)); // clamp to canvas bounds
 
     vx = vx !== null ? vx : (initVelXInput ? parseFloat(initVelXInput.value) * PixelPerMeter : 0);
@@ -365,8 +363,7 @@ export function spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, zoomLeve
         radius,
         mass: massInput ? parseFloat(massInput.value) : 1,
         gravity: gravityVal,
-        restitution: restitutionVal,
-        zoomLevel
+        restitution: restitutionVal
     });
 }
 
@@ -386,4 +383,3 @@ export function getAccelerationFromForce(obj) {
         ay: -acceleration * Math.sin(angle),
     };
 }
-

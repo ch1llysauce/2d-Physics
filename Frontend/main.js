@@ -133,23 +133,33 @@ function finishSimulation() {
 
 function replaySimulation() {
   if (recordedFrames.length === 0) return;
+
   isReplaying = true;
   isPaused = true;
   replayIndex = 0;
   isFinished = false;
   document.getElementById("sim-complete").style.display = "none";
 
+  // Show and reset slider
+  const slider = document.getElementById("replaySlider");
+  slider.max = recordedFrames.length - 1;
+  slider.value = 0;
+  slider.style.display = "block";
+
   const speed = parseFloat(document.getElementById("replaySpeed")?.value || "1");
   const interval = 1000 / 60 / speed;
 
-   const intervalId = setInterval(() => {
+  const intervalId = setInterval(() => {
     if (!isReplaying || replayIndex >= recordedFrames.length) {
       clearInterval(intervalId);
       isReplaying = false;
       document.getElementById("sim-complete").style.display = "block";
+      slider.style.display = "none"; // hide after
       return;
     }
+
     objects = recordedFrames[replayIndex].map(o => ({ ...o }));
+    slider.value = replayIndex;
     replayIndex++;
   }, interval);
 }
@@ -193,76 +203,76 @@ function update() {
   ctx.translate(panOffsetX, panOffsetY);
 
   if (!currentLesson) {
+    ctx.restore();
+  } else {
+    if (isReplaying) {
+      if (replayIndex < recordedFrames.length) {
+        objects = recordedFrames[replayIndex].map(o => ({ ...o }));
+        replayIndex++;
+      } else {
+        isReplaying = false;
+        document.getElementById("sim-complete").style.display = "block";
+      }
+    } else if (!isPaused && !isFinished) {
+      const gravity = parseFloat(document.getElementById("gravity")?.value || 9.8);
+      const restitution = parseFloat(document.getElementById("restitution")?.value || 0.8);
+      const friction = parseFloat(document.getElementById("friction")?.value || 0);
+
+      for (let o of objects) {
+        applyPhysics(o, {
+          gravity,
+          restitution,
+          canvasHeight: canvas.height,
+          deltaTime,
+          currentLesson,
+          friction,
+          skipCollision: true
+        }, objects);
+      }
+
+      for (let o of objects) {
+        applyPhysics(o, {
+          currentLesson,
+          collisionOnly: true
+        }, objects);
+      }
+
+      const snapshot = objects.map(o => ({
+        ...o,
+        x: o.x,
+        y: o.y,
+        vx: o.vx,
+        vy: o.vy,
+        ax: o.ax,
+        ay: o.ay
+      }));
+      recordedFrames.push(snapshot);
+    }
+
+    // Draw all objects
+    for (const obj of objects) {
+      switch (currentLesson) {
+        case "freefall":
+          drawObject(ctx, obj, PixelPerMeter, canvas);
+          break;
+        case "kinematics":
+          drawKinematicsObject(ctx, obj, PixelPerMeter);
+          break;
+        case "forces":
+          drawForcesObject(ctx, obj, PixelPerMeter);
+          break;
+        case "friction":
+          drawFrictionObject(ctx, obj, PixelPerMeter);
+          break;
+        case "workEnergy":
+          drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
+          break;
+      }
+    }
+  }
+
   ctx.restore();
-} else {
-  if (isReplaying) {
-    if (replayIndex < recordedFrames.length) {
-      objects = recordedFrames[replayIndex].map(o => ({ ...o }));
-      replayIndex++;
-    } else {
-      isReplaying = false;
-      document.getElementById("sim-complete").style.display = "block";
-    }
-  } else if (!isPaused && !isFinished) {
-    const gravity = parseFloat(document.getElementById("gravity")?.value || 9.8);
-    const restitution = parseFloat(document.getElementById("restitution")?.value || 0.8);
-    const friction = parseFloat(document.getElementById("friction")?.value || 0);
-
-    for (let o of objects) {
-      applyPhysics(o, {
-        gravity,
-        restitution,
-        canvasHeight: canvas.height,
-        deltaTime,
-        currentLesson,
-        friction,
-        skipCollision: true
-      }, objects);
-    }
-
-    for (let o of objects) {
-      applyPhysics(o, {
-        currentLesson,
-        collisionOnly: true
-      }, objects);
-    }
-
-    const snapshot = objects.map(o => ({
-      ...o,
-      x: o.x,
-      y: o.y,
-      vx: o.vx,
-      vy: o.vy,
-      ax: o.ax,
-      ay: o.ay
-    }));
-    recordedFrames.push(snapshot);
-  }
-
-  // Draw all objects
-  for (const obj of objects) {
-    switch (currentLesson) {
-      case "freefall":
-        drawObject(ctx, obj, PixelPerMeter, canvas);
-        break;
-      case "kinematics":
-        drawKinematicsObject(ctx, obj, PixelPerMeter);
-        break;
-      case "forces":
-        drawForcesObject(ctx, obj, PixelPerMeter);
-        break;
-      case "friction":
-        drawFrictionObject(ctx, obj, PixelPerMeter);
-        break;
-      case "workEnergy":
-        drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
-        break;
-    }
-  }
-}
-
-ctx.restore();
-requestAnimationFrame(update);
+  requestAnimationFrame(update);
 
 }
 
@@ -427,6 +437,16 @@ document.querySelectorAll('#nav button').forEach(btn => {
     const lesson = btn.getAttribute('data-lesson');
     switchLesson(lesson);
   });
+});
+
+document.getElementById("replaySlider").addEventListener("input", (e) => {
+  if (recordedFrames.length > 0) {
+    isReplaying = false;
+    isPaused = true;
+    const index = parseInt(e.target.value, 10);
+    replayIndex = index;
+    objects = recordedFrames[replayIndex].map(o => ({ ...o }));
+  }
 });
 
 const desc = document.getElementById("lesson-description");

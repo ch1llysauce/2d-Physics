@@ -85,9 +85,11 @@ let lastTime = performance.now();
 let isPaused = false;
 
 function togglePause() {
-  isPaused = !isPaused;
+  
   const pauseBtn = document.getElementById("pauseBtn");
+  if(pauseBtn?.disabled) return;
 
+  isPaused = !isPaused;
   if (pauseBtn) {
     pauseBtn.textContent = isPaused ? "Resume" : "Pause";
 
@@ -140,6 +142,13 @@ function replaySimulation() {
   isFinished = false;
   document.getElementById("sim-complete").style.display = "none";
 
+  const pause = document.getElementById("pauseBtn");
+
+  if (pauseBtn) {
+    pauseBtn.disabled = true;
+    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
   // Show and reset slider
   const slider = document.getElementById("replaySlider");
   slider.max = recordedFrames.length - 1;
@@ -154,7 +163,12 @@ function replaySimulation() {
       clearInterval(intervalId);
       isReplaying = false;
       document.getElementById("sim-complete").style.display = "block";
-      slider.style.display = "none"; // hide after
+
+
+      if (pauseBtn) {
+        pauseBtn.disabled = false;
+        pauseBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      }
       return;
     }
 
@@ -172,6 +186,9 @@ function resetSimulation() {
   replayIndex = 0;
   clearCanvas();
   document.getElementById("sim-complete").classList.remove("sim-complete");
+
+  const slider = document.getElementById("replaySlider");
+  slider.style.display = "none";
 }
 
 function downloadReplay() {

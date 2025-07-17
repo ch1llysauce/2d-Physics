@@ -10,9 +10,69 @@ const ctx = canvas.getContext("2d");
 let isFinished = false;
 let isReplaying = false;
 let recordedFrames = [];
-let replayIndex = 0;
+let replayIndex = 0
+let replayTimer = null;
 
 
+document.getElementById("replaySpeed").addEventListener("change", () => {
+  if (isReplaying) {
+    clearTimeout(replayTimer);
+    replayNextFrame();
+  }
+});
+
+function replayNextFrame() {
+  if (replayIndex >= recordedFrames.length) {
+    isReplaying = false;
+    return;
+  }
+
+  const frame = recordedFrames[replayIndex];
+
+  
+  objects = frame.map(o => ({ ...o })); // sync global state with this frame
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
+
+  for (const obj of objects) {
+    switch (currentLesson) {
+      case "freefall":
+        drawObject(ctx, obj, PixelPerMeter, canvas);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+        break;
+      case "kinematics":
+        drawKinematicsObject(ctx, obj, PixelPerMeter);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+        break;
+      case "forces":
+        drawForcesObject(ctx, obj, PixelPerMeter);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+        break;
+      case "friction":
+        drawFrictionObject(ctx, obj, PixelPerMeter);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+        break;
+      case "workEnergy":
+        drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+        break;
+    }
+  }
+
+  // Update slider
+  const slider = document.getElementById("replaySlider");
+  if (slider) slider.value = replayIndex;
+
+  replayIndex++;
+
+  const speed = parseFloat(document.getElementById("replaySpeed").value);
+  const interval = 1000 / 60 / speed; // base 60 FPS
+
+  replayTimer = setTimeout(() => {
+    replayNextFrame();
+  }, interval);
+}
 
 function resizeCanvas() {
   const wrapper = canvas.parentElement;
@@ -117,8 +177,8 @@ function replaySimulation() {
 
   isReplaying = true;
   isPaused = true;
-  replayIndex = 0;
   isFinished = false;
+  replayIndex = 0;
 
   const simComplete = document.getElementById("sim-complete");
   if (simComplete) {
@@ -131,62 +191,24 @@ function replaySimulation() {
     pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
   }
 
-  // Show and reset slider
   const slider = document.getElementById("replaySlider");
   slider.max = recordedFrames.length - 1;
   slider.value = 0;
   slider.style.display = "block";
 
-  
-  const speedSelect = document.getElementById("replaySpeed");
-  const replaySpeed = parseFloat(speedSelect.value || "1");
+  startReplay();
+}
 
-  // Timing logic
-  let lastReplayTime = 0;
-  let accumulatedTime = 0;
 
-  function replayFrame(timestamp) {
-    if (!lastReplayTime) lastReplayTime = timestamp;
-    const deltaTime = (timestamp - lastReplayTime) / 1000;
-    lastReplayTime = timestamp;
-    accumulatedTime += deltaTime;
-
-    const speedSelect = document.getElementById("replaySpeed");
-    const replaySpeed = parseFloat(speedSelect?.value || "1");
-    
-    const frameInterval = (1 / 60) / replaySpeed;
-
-    if (accumulatedTime >= frameInterval) {
-      accumulatedTime = 0;
-
-      if (replayIndex >= recordedFrames.length) {
-        isReplaying = false;
-        isFinished = true;
-
-        const simComplete = document.getElementById("sim-complete");
-        if (simComplete) simComplete.classList.add("visible");
-
-        return;
-      }
-
-      clearCanvas();
-
-      const frame = recordedFrames[replayIndex];
-      frame.forEach((obj) => drawObject(ctx, obj)); 
-      slider.value = replayIndex;
-      replayIndex++;
-    }
-
-    if (isReplaying) {
-      requestAnimationFrame(replayFrame);
-    }
-  }
-
-  requestAnimationFrame(replayFrame);
+function startReplay() {
+  if (replayTimer) clearTimeout(replayTimer);
+  replayNextFrame();
 }
 
 
 function resetSimulation() {
+  clearTimeout(replayTimer);
+
   isPaused = false;
   isFinished = false;
   isReplaying = false;
@@ -263,15 +285,37 @@ function update() {
     ctx.restore();
   } else {
     if (isReplaying) {
-      if (replayIndex < recordedFrames.length) {
-        objects = recordedFrames[replayIndex].map(o => ({ ...o }));
-        document.getElementById("replaySlider").value = replayIndex;
-        replayIndex++;
-      } else {
-        isReplaying = false;
-        isPaused = true;
-        document.getElementById("sim-complete").style.display = "block";
+      const frame = recordedFrames[replayIndex];
+      if (frame) {
+        objects = frame.map(o => ({ ...o }));
+        for (const obj of objects) {
+          switch (currentLesson) {
+            case "freefall":
+              drawObject(ctx, obj, PixelPerMeter, canvas);
+              drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+              break;
+            case "kinematics":
+              drawKinematicsObject(ctx, obj, PixelPerMeter);
+              drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+              break;
+            case "forces":
+              drawForcesObject(ctx, obj, PixelPerMeter);
+              drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+              break;
+            case "friction":
+              drawFrictionObject(ctx, obj, PixelPerMeter);
+              drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+              break;
+            case "workEnergy":
+              drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
+              drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+              break;
+          }
+        }
       }
+      ctx.restore();
+      requestAnimationFrame(update);
+      return;
     } else if (!isPaused && !isFinished) {
       const gravity = parseFloat(document.getElementById("gravity")?.value || 9.8);
       const restitution = parseFloat(document.getElementById("restitution")?.value || 0.8);
@@ -548,5 +592,7 @@ document.getElementById("replaySlider").addEventListener("input", (e) => {
 
 const desc = document.getElementById("lesson-description");
 desc.innerHTML = "<em>Click a lesson button to start!</em>";
+
+
 
 update();

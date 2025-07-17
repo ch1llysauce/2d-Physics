@@ -82,6 +82,18 @@ body {
   margin-top: 10px;
 }
 
+#sim-complete {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  display: none; /* default hidden */
+}
+
+#sim-complete.visible {
+  display: block;
+  opacity: 1;
+}
+
+
 .slider-container {
   display: flex;
   justify-content: center;

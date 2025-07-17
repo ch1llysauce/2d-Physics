@@ -14,7 +14,9 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
     if (skipCollision) {
         // Gravity (not for kinematics)
         if (currentLesson !== "kinematics" && currentLesson !== "forces" && !obj.restingOn) {
-            obj.vy += (obj.gravity ?? gravity) * deltaTime;
+            if (!obj.restingOn) {
+                obj.vy += (obj.gravity ?? gravity) * deltaTime;
+            }
         }
 
         // Freefall logic
@@ -72,7 +74,9 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
 
         // Work-Energy logic
         if (currentLesson === "workEnergy") {
-            obj.vy += (obj.gravity ?? gravity) * deltaTime;
+            if (!obj.restingOn) {
+                obj.vy += (obj.gravity ?? gravity) * deltaTime;
+            }
         }
 
         // Position update
@@ -99,11 +103,33 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
 
     // Only apply collisions (Stage 2)
     if (collisionOnly && obj.radius) {
+        const onGround = handleGroundCollision(obj, canvasHeight, restitution);
         handleCircleCollisions(obj, allObjects, { restitution });
     }
 
     updateRestingStatus(obj);
 }
+
+function handleGroundCollision(obj, canvasHeight, restitution = 0.8) {
+    const radius = obj.radius || obj.h / 2;
+    const bottom = obj.y + radius;
+
+    if (bottom >= canvasHeight) {
+        obj.y = canvasHeight - radius;
+
+        if (Math.abs(obj.vy) < 0.5) {
+            obj.vy = 0;
+            obj.restingOn = { ground: true };
+        } else {
+            obj.vy *= -(obj.restitution ?? restitution);
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 
 function handleVerticalStackCollision(obj, other) {
     const alignedX = Math.abs(obj.x - other.x) < 2;
@@ -112,87 +138,99 @@ function handleVerticalStackCollision(obj, other) {
     if (!alignedX || !verticalProximity) return false;
 
     const bounce = Math.min(obj.restitution ?? 0.8, other.restitution ?? 0.8);
+    const velocityThreshold = 0.5 * (1 - bounce);
+
     const v1 = obj.vy;
     const v2 = other.vy;
-
     const relativeVelocity = v1 - v2;
-    if (Math.abs(relativeVelocity) < 0.2 && Math.abs(v1) < 0.2 && Math.abs(v2) < 0.2) {
+
+    if (
+        Math.abs(relativeVelocity) < velocityThreshold &&
+        Math.abs(v1) < velocityThreshold &&
+        Math.abs(v2) < velocityThreshold
+    ) {
         obj.vy = 0;
         other.vy = 0;
         obj.restingOn = other;
+
+        // Snap stacking to prevent drift
+        obj.y = other.y - obj.radius - other.radius;
         return true;
     }
 
-    obj.vy = -v2 * bounce;
-    other.vy = -v1 * bounce;
-    return true;
+    // Reflect bounce normally
+    if (Math.abs(other.vy) < 0.1) {
+        obj.vy = -v1 * bounce;
+    } else if (Math.abs(obj.vy) < 0.1) {
+        other.vy = -v2 * bounce;
+    } else {
+        obj.vy = -v2 * bounce;
+        other.vy = -v1 * bounce;
+    }
 
+    // Optional damping to stop infinite motion
+    if (Math.abs(obj.vy) < 0.01) obj.vy = 0;
+    if (Math.abs(other.vy) < 0.01) other.vy = 0;
+
+    return true;
 }
+
+
 
 function updateRestingStatus(obj) {
     if (!obj.restingOn) return;
 
-    const dx = obj.x - obj.restingOn.x;
-    const dy = obj.y - obj.restingOn.y;
-    const dist = Math.hypot(dx, dy);
-    const combinedRadius = (obj.radius ?? obj.h / 2) + (obj.restingOn.radius ?? obj.restingOn.h / 2);
+    const yGap = Math.abs(obj.y - obj.restingOn.y);
+    const targetGap = (obj.radius ?? obj.h / 2) + (obj.restingOn.radius ?? obj.restingOn.h / 2);
 
-    if (dist > combinedRadius + 1) {
+    if (yGap > targetGap + 1) {
         obj.restingOn = null;
     }
+
 }
 
 function handleCircleCollisions(obj, allObjects, options = {}) {
     const restitution = options.restitution ?? 0.8;
+    const skipIfOnGround = options.skipIfOnGround ?? false;
 
-    for (let other of allObjects) {
-        if (other === obj || !other.radius) continue;
+    for (const other of allObjects) {
+        if (obj === other || !other.radius) continue;
 
         const dx = other.x - obj.x;
         const dy = other.y - obj.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = obj.radius + other.radius;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const minDist = (obj.radius ?? obj.h / 2) + (other.radius ?? other.h / 2);
 
-        if (dist <= minDist) {
-            // 1. Resolve overlap
-            const overlap = minDist - dist;
-            let nx, ny;
-            if (dist === 0) {
-                const angle = Math.random() * 2 * Math.PI;
-                nx = Math.cos(angle);
-                ny = Math.sin(angle);
-            } else {
-                nx = dx / dist;
-                ny = dy / dist;
-            }
+        if (distance < minDist) {
+            const overlap = minDist - distance;
+            const nx = dx / distance;
+            const ny = dy / distance;
 
             obj.x -= nx * overlap / 2;
             obj.y -= ny * overlap / 2;
             other.x += nx * overlap / 2;
             other.y += ny * overlap / 2;
 
-            // 2. Special vertical stack handling
-            if (handleVerticalStackCollision(obj, other)) {
-                continue;
-            }
-
-            // 3. Relative velocity along normal
-            const vxRel = obj.vx - other.vx;
-            const vyRel = obj.vy - other.vy;
-            const relVel = vxRel * nx + vyRel * ny;
+            const rvx = other.vx - obj.vx;
+            const rvy = other.vy - obj.vy;
+            const relVel = rvx * nx + rvy * ny;
 
             if (relVel > 0) continue;
 
             const bounce = Math.min(obj.restitution ?? restitution, other.restitution ?? restitution);
             const impulse = -(1 + bounce) * relVel / 2;
 
-            obj.vx += impulse * nx;
-            obj.vy += impulse * ny;
-            other.vx -= impulse * nx;
-            other.vy -= impulse * ny;
+            // 🛑 Skip vertical bounce if this obj already bounced on the ground
+            if (skipIfOnGround && Math.abs(ny) > 0.8) continue;
+
+            obj.vx -= impulse * nx;
+            obj.vy -= impulse * ny;
+            other.vx += impulse * nx;
+            other.vy += impulse * ny;
         }
     }
 }
+
 
 
 export function spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects, x = null, y = null, vx = null, vy = null) {

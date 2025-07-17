@@ -6,15 +6,12 @@ const RulerStartX = 30;
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let panOffsetX = 0;
-let panOffsetY = 0;
-let isDragging = false;
-let lastPointer = { x: 0, y: 0 };
 
 let isFinished = false;
 let isReplaying = false;
 let recordedFrames = [];
 let replayIndex = 0;
+
 
 
 function resizeCanvas() {
@@ -34,60 +31,15 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-canvas.addEventListener("mousedown", (e) => {
-  isDragging = true;
-  lastPointer = { x: e.clientX, y: e.clientY };
-});
-
-canvas.addEventListener("mousemove", (e) => {
-  if (isDragging) {
-    const dx = e.clientX - lastPointer.x;
-    const dy = e.clientY - lastPointer.y;
-    panOffsetX += dx;
-    panOffsetY += dy;
-    lastPointer = { x: e.clientX, y: e.clientY };
-  }
-});
-
-canvas.addEventListener("mouseup", () => {
-  isDragging = false;
-});
-canvas.addEventListener("mouseleave", () => {
-  isDragging = false;
-});
-
-// Optional: Support mobile panning
-canvas.addEventListener("touchstart", (e) => {
-  isDragging = true;
-  const touch = e.touches[0];
-  lastPointer = { x: touch.clientX, y: touch.clientY };
-});
-
-canvas.addEventListener("touchmove", (e) => {
-  if (isDragging) {
-    const touch = e.touches[0];
-    const dx = touch.clientX - lastPointer.x;
-    const dy = touch.clientY - lastPointer.y;
-    panOffsetX += dx;
-    panOffsetY += dy;
-    lastPointer = { x: touch.clientX, y: touch.clientY };
-  }
-});
-
-canvas.addEventListener("touchend", () => {
-  isDragging = false;
-});
-
-
 let objects = [];
 let currentLesson = null;
 let lastTime = performance.now();
 let isPaused = false;
 
 function togglePause() {
-  
+
   const pauseBtn = document.getElementById("pauseBtn");
-  if(pauseBtn?.disabled) return;
+  if (pauseBtn?.disabled) return;
 
   isPaused = !isPaused;
   if (pauseBtn) {
@@ -122,15 +74,42 @@ function clearCanvas() {
   objects = [];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
-  panOffsetX = 0;
-  panOffsetY = 0;
 }
 
 function finishSimulation() {
   isFinished = true;
   isPaused = true;
+
+  const spawnBtn = document.getElementById("spawnBtn");
+  if (spawnBtn) {
+    spawnBtn.disabled = true;
+    spawnBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const clearBtn = document.getElementById("clearBtn");
+  if (clearBtn) {
+    clearBtn.disabled = true;
+    clearBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const replayBtn = document.getElementById("replayBtn");
+  if (replayBtn) {
+    replayBtn.disabled = false;
+    replayBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  }
+
   const pauseBtn = document.getElementById("pauseBtn");
-  if (pauseBtn) pauseBtn.textContent = "Paused";
+  if (pauseBtn) {
+    pauseBtn.disabled = true;
+    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const simComplete = document.getElementById("sim-complete");
+  if (simComplete) {
+    simComplete.style.display = "block";
+    requestAnimationFrame(() => simComplete.classList.add("visible"));
+  }
+
 }
 
 function replaySimulation() {
@@ -140,10 +119,13 @@ function replaySimulation() {
   isPaused = true;
   replayIndex = 0;
   isFinished = false;
-  document.getElementById("sim-complete").style.display = "none";
 
-  const pause = document.getElementById("pauseBtn");
+  const simComplete = document.getElementById("sim-complete");
+  if (simComplete) {
+    simComplete.classList.add("visible");
+  }
 
+  const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn) {
     pauseBtn.disabled = true;
     pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
@@ -155,28 +137,54 @@ function replaySimulation() {
   slider.value = 0;
   slider.style.display = "block";
 
-  const speed = parseFloat(document.getElementById("replaySpeed")?.value || "1");
-  const interval = 1000 / 60 / speed;
+  
+  const speedSelect = document.getElementById("replaySpeed");
+  const replaySpeed = parseFloat(speedSelect.value || "1");
 
-  const intervalId = setInterval(() => {
-    if (!isReplaying || replayIndex >= recordedFrames.length) {
-      clearInterval(intervalId);
-      isReplaying = false;
-      document.getElementById("sim-complete").style.display = "block";
+  // Timing logic
+  let lastReplayTime = 0;
+  let accumulatedTime = 0;
 
+  function replayFrame(timestamp) {
+    if (!lastReplayTime) lastReplayTime = timestamp;
+    const deltaTime = (timestamp - lastReplayTime) / 1000;
+    lastReplayTime = timestamp;
+    accumulatedTime += deltaTime;
 
-      if (pauseBtn) {
-        pauseBtn.disabled = false;
-        pauseBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    const speedSelect = document.getElementById("replaySpeed");
+    const replaySpeed = parseFloat(speedSelect?.value || "1");
+    
+    const frameInterval = (1 / 60) / replaySpeed;
+
+    if (accumulatedTime >= frameInterval) {
+      accumulatedTime = 0;
+
+      if (replayIndex >= recordedFrames.length) {
+        isReplaying = false;
+        isFinished = true;
+
+        const simComplete = document.getElementById("sim-complete");
+        if (simComplete) simComplete.classList.add("visible");
+
+        return;
       }
-      return;
+
+      clearCanvas();
+
+      const frame = recordedFrames[replayIndex];
+      frame.forEach((obj) => drawObject(ctx, obj)); 
+      slider.value = replayIndex;
+      replayIndex++;
     }
 
-    objects = recordedFrames[replayIndex].map(o => ({ ...o }));
-    slider.value = replayIndex;
-    replayIndex++;
-  }, interval);
+    if (isReplaying) {
+      requestAnimationFrame(replayFrame);
+    }
+  }
+
+  requestAnimationFrame(replayFrame);
 }
+
 
 function resetSimulation() {
   isPaused = false;
@@ -185,10 +193,43 @@ function resetSimulation() {
   recordedFrames = [];
   replayIndex = 0;
   clearCanvas();
-  document.getElementById("sim-complete").classList.remove("sim-complete");
+
+  const simComplete = document.getElementById("sim-complete");
+  if (simComplete) {
+    simComplete.classList.remove("visible");
+    setTimeout(() => {
+      simComplete.style.display = "none";
+    }, 500); // Wait for fade-out animation before hiding
+  }
+
 
   const slider = document.getElementById("replaySlider");
   slider.style.display = "none";
+
+  const spawnBtn = document.getElementById("spawnBtn");
+  if (spawnBtn) {
+    spawnBtn.disabled = false;
+    spawnBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const clearBtn = document.getElementById("clearBtn");
+  if (clearBtn) {
+    clearBtn.disabled = false;
+    clearBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const replayBtn = document.getElementById("replayBtn");
+  if (replayBtn) {
+    replayBtn.disabled = true;
+    replayBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  }
+
+  const pauseBtn = document.getElementById("pauseBtn");
+  if (pauseBtn) {
+    pauseBtn.disabled = false;
+    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
 }
 
 function downloadReplay() {
@@ -217,7 +258,6 @@ function update() {
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
 
   ctx.save();
-  ctx.translate(panOffsetX, panOffsetY);
 
   if (!currentLesson) {
     ctx.restore();
@@ -225,9 +265,11 @@ function update() {
     if (isReplaying) {
       if (replayIndex < recordedFrames.length) {
         objects = recordedFrames[replayIndex].map(o => ({ ...o }));
+        document.getElementById("replaySlider").value = replayIndex;
         replayIndex++;
       } else {
         isReplaying = false;
+        isPaused = true;
         document.getElementById("sim-complete").style.display = "block";
       }
     } else if (!isPaused && !isFinished) {
@@ -271,18 +313,23 @@ function update() {
       switch (currentLesson) {
         case "freefall":
           drawObject(ctx, obj, PixelPerMeter, canvas);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
           break;
         case "kinematics":
           drawKinematicsObject(ctx, obj, PixelPerMeter);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
           break;
         case "forces":
           drawForcesObject(ctx, obj, PixelPerMeter);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
           break;
         case "friction":
           drawFrictionObject(ctx, obj, PixelPerMeter);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
           break;
         case "workEnergy":
           drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
           break;
       }
     }
@@ -320,10 +367,10 @@ function updateLessonUI() {
     desc.innerHTML = "This lesson demonstrates the effect of gravity on objects. You can add objects to the canvas and see how they fall under the influence of gravity.";
     controls.innerHTML = `
         <div id="freefall-controls">
-          <button onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
+          <button id="spawnBtn" onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
+          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
-          <button onclick="replaySimulation()">Replay</button>
+          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
           <button onclick="resetSimulation()">Reset</button>
           <br/><br/>
           Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
@@ -341,10 +388,10 @@ function updateLessonUI() {
     desc.innerHTML = "This screen demonstrates velocity and acceleration without forces.";
     controls.innerHTML = `
         <div id="kinematics-controls">
-          <button onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
+          <button id="spawnBtn" onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
+          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
-          <button onclick="replaySimulation()">Replay</button>
+          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
           <button onclick="resetSimulation()">Reset</button>
           <br/><br/>
           Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
@@ -362,10 +409,10 @@ function updateLessonUI() {
     desc.innerHTML = "This lesson demonstrates Newton's Second Law: how force, mass, and angle affect an object's acceleration and motion.";
     controls.innerHTML = `
         <div id="forces-controls">
-          <button onclick="spawnBallForcesWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
+          <button id="spawnBtn" onclick="spawnBallForcesWrapper()">Spawn Ball</button>
+          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
-          <button onclick="replaySimulation()">Replay</button>
+          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
           <button onclick="resetSimulation()">Reset</button>
           <br/><br/>
           Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
@@ -388,10 +435,10 @@ function updateLessonUI() {
     desc.innerHTML = "This lesson demonstrates the effect of friction on objects. You can add objects and apply forces to see how they move with friction.";
     controls.innerHTML = `
         <div id="friction-controls">
-          <button onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
-          <button onclick="clearCanvas()">Clear</button>
+          <button id="spawnBtn" onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
+          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
-          <button onclick="replaySimulation()">Replay</button>
+          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
           <button onclick="resetSimulation()">Reset</button>
           <br/><br/>
           Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
@@ -410,10 +457,10 @@ function updateLessonUI() {
     desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
     controls.innerHTML = `
       <div id="work-energy-controls">
-      <button onclick="spawnBallWorkEnergyWrapper()">Spawn Energy Ball</button>
-      <button onclick="clearCanvas()">Clear</button>
+      <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Energy Ball</button>
+      <button id="clearBtn" onclick="clearCanvas()">Clear</button>
       <button onclick="finishSimulation()">Finish</button>
-      <button onclick="replaySimulation()">Replay</button>
+      <button id="replayBtn" onclick="replaySimulation()">Replay</button>
       <button onclick="resetSimulation()">Reset</button>
       <br/><br/>
       Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
@@ -431,6 +478,11 @@ function updateLessonUI() {
   controls.innerHTML += `
     <button onclick="togglePause()" id="pauseBtn" class="button">Pause</button>
   `;
+  const replayBtn = document.getElementById("replayBtn");
+  if (replayBtn) {
+    replayBtn.disabled = true;
+    replayBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
 
   window.spawnBallFreeFallWrapper = spawnBallFreeFallWrapper;
   window.spawnBallKinematicsWrapper = spawnBallKinematicsWrapper;
@@ -463,6 +515,34 @@ document.getElementById("replaySlider").addEventListener("input", (e) => {
     const index = parseInt(e.target.value, 10);
     replayIndex = index;
     objects = recordedFrames[replayIndex].map(o => ({ ...o }));
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
+
+    for (const obj of objects) {
+      switch (currentLesson) {
+        case "freefall":
+          drawObject(ctx, obj, PixelPerMeter, canvas);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+          break;
+        case "kinematics":
+          drawKinematicsObject(ctx, obj, PixelPerMeter);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+          break;
+        case "forces":
+          drawForcesObject(ctx, obj, PixelPerMeter);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+          break;
+        case "friction":
+          drawFrictionObject(ctx, obj, PixelPerMeter);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+          break;
+        case "workEnergy":
+          drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
+          drawVelocityArrow(ctx, obj, PixelPerMeter, 0.5);
+          break;
+      }
+    }
   }
 });
 

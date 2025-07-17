@@ -102,11 +102,11 @@ export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
 
   const mass = obj.mass ?? 1;
   const gravityVal = obj.gravity ?? 9.8;
-  
+
   let height = (canvas.height - obj.y - (obj.radius || obj.h / 2)) / PixelPerMeter;
   if (height < 0.05) height = 0;
 
-  
+
   const velocity = Math.hypot(obj.vx ?? 0, obj.vy ?? 0) / PixelPerMeter;
 
   const pe = (mass * gravityVal * height).toFixed(2);
@@ -135,7 +135,7 @@ export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX) {
   ctx.stroke();
 
   ctx.textAlign = "right";
-  
+
   for (let y = 0; y <= canvas.height; y += interval) {
     const heightMeters = ((canvas.height - y) / PixelPerMeter);
 
@@ -174,17 +174,16 @@ export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX) {
 }
 
 
-export function drawVelocityArrow(ctx, obj, scale = 10) {
+export function drawVelocityArrow(ctx, obj, PixelPerMeter, scale = 1) {
   const vx = obj.vx ?? 0;
   const vy = obj.vy ?? 0;
   const speed = Math.hypot(vx, vy);
+  if (speed < 0.01) return; // Skip near-zero arrows
 
-  if (speed < 0.1) return;
-
-  const startX = obj.x;
-  const startY = obj.y;
-  const endX = startX + vx * scale;
-  const endY = startY + vy * scale;
+  const startX = obj.x * PixelPerMeter;
+  const startY = ctx.canvas.height - obj.y * PixelPerMeter;
+  const endX = startX + vx * PixelPerMeter * scale;
+  const endY = startY - vy * PixelPerMeter * scale;
 
   ctx.beginPath();
   ctx.moveTo(startX, startY);
@@ -204,6 +203,10 @@ export function drawVelocityArrow(ctx, obj, scale = 10) {
   ctx.fillStyle = "#ff0000";
   ctx.fill();
 }
+
+
+
+
 
 export function formatVelocity(obj, PixelPerMeter) {
   const vy = obj.vy ?? 0;

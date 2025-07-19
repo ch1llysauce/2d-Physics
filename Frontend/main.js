@@ -268,6 +268,82 @@ function downloadReplay() {
   URL.revokeObjectURL(url);
 }
 
+function downloadReplayAsVideo(frameRate = 60) {
+  if (recordedFrames.length === 0) return;
+
+  const stream = canvas.captureStream(frameRate);
+  const mediaRecorder = new MediaRecorder(stream, {
+    mimeType: "video/webm" // browsers don't support .mp4 directly
+  });
+
+  const recordedChunks = [];
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      recordedChunks.push(e.data);
+    }
+  };
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "replay.webm";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  let index = 0;
+  mediaRecorder.start();
+
+  const interval = 1000 / frameRate;
+  const replayInterval = setInterval(() => {
+    if (index >= recordedFrames.length) {
+      clearInterval(replayInterval);
+      mediaRecorder.stop();
+      return;
+    }
+
+    // Restore frame
+    const frame = recordedFrames[index++];
+    objects = frame.data.map(o => ({ ...o })); // depends on your format
+    clearCanvas(); // your own function to wipe canvas
+    drawAllObjects(); // call your actual drawing logic
+  }, interval);
+}
+
+function drawAllObjects() {
+  if (!objects) return;
+
+  clearCanvas(); // your own clear function
+
+  switch (currentLesson) {
+    case "Free Fall":
+      objects.forEach(obj => drawObject(ctx, obj, PixelPerMeter, RulerStartX));
+      break;
+    case "Kinematics":
+      objects.forEach(obj => drawKinematicsObject(ctx, obj, PixelPerMeter, RulerStartX));
+      break;
+    case "Forces":
+      objects.forEach(obj => drawForcesObject(ctx, obj, PixelPerMeter, RulerStartX));
+      break;
+    case "Friction":
+      objects.forEach(obj => drawFrictionObject(ctx, obj, PixelPerMeter, RulerStartX));
+      break;
+    case "Work & Energy":
+      objects.forEach(obj => drawWorkEnergyObject(ctx, obj, PixelPerMeter, RulerStartX));
+      break;
+    default:
+      objects.forEach(obj => drawObject(ctx, obj, PixelPerMeter, RulerStartX));
+  }
+
+  drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
+}
+
+
 // Initialize canvas size
 function update() {
   const now = performance.now();
@@ -541,6 +617,7 @@ function updateLessonUI() {
   window.replaySimulation = replaySimulation;
   window.resetSimulation = resetSimulation;
   window.downloadReplay = downloadReplay;
+  window.downloadReplayAsVideo = downloadReplayAsVideo;
 
 }
 

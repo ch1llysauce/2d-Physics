@@ -13,24 +13,83 @@ let recordedFrames = [];
 let replayIndex = 0
 let replayTimer = null;
 
+let lastReplayTime = null;
+let replaySpeed = 1;
+let replayStartTime = 0;
+let recordingStartTime = performance.now();
 
-document.getElementById("replaySpeed").addEventListener("change", () => {
-  if (isReplaying) {
-    clearTimeout(replayTimer);
-    replayNextFrame();
-  }
+document.getElementById("replaySpeed").addEventListener("change", (e) => {
+  replaySpeed = parseFloat(e.target.value);
 });
 
-function replayNextFrame() {
+function prepareNewSimulation() {
+  clearTimeout(replayTimer);
+
+  recordedFrames = [];
+  replayIndex = 0;
+  isReplaying = false;
+  isPaused = false;
+  isFinished = false;
+  lastReplayTime = null;
+  replayStartTime = null;
+
+  const simComplete = document.getElementById("sim-complete");
+  if (simComplete) {
+    simComplete.classList.remove("visible");
+    simComplete.style.display = "none";
+  }
+
+  const slider = document.getElementById("replaySlider");
+  if (slider) {
+    slider.style.display = "none";
+  }
+
+  const spawnBtn = document.getElementById("spawnBtn");
+  if (spawnBtn) {
+    spawnBtn.disabled = false;
+    spawnBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const clearBtn = document.getElementById("clearBtn");
+  if (clearBtn) {
+    clearBtn.disabled = false;
+    clearBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const replayBtn = document.getElementById("replayBtn");
+  if (replayBtn) {
+    replayBtn.disabled = true;
+    replayBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  }
+
+  const pauseBtn = document.getElementById("pauseBtn");
+  if (pauseBtn) {
+    pauseBtn.disabled = false;
+    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  objects = [];
+}
+
+function replayLoop(timestamp) {
+  if (!isReplaying || !isPaused) return;
+
+  if (!lastReplayTime) lastReplayTime = timestamp;
+
+  const currentTime = (timestamp - replayStartTime) * replaySpeed;
+
+  while (replayIndex < recordedFrames.length && recordedFrames[replayIndex].time <= currentTime) {
+    replayIndex++;
+  }
+
   if (replayIndex >= recordedFrames.length) {
     isReplaying = false;
+    document.getElementById("sim-complete").classList.add("sim-complete");
     return;
   }
 
   const frame = recordedFrames[replayIndex];
-
-  
-  objects = frame.map(o => ({ ...o })); // sync global state with this frame
+  objects = frame.objects.map(o => ({ ...o }));
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
@@ -60,18 +119,11 @@ function replayNextFrame() {
     }
   }
 
-  // Update slider
   const slider = document.getElementById("replaySlider");
   if (slider) slider.value = replayIndex;
 
-  replayIndex++;
 
-  const speed = parseFloat(document.getElementById("replaySpeed").value);
-  const interval = 1000 / 60 / speed; // base 60 FPS
-
-  replayTimer = setTimeout(() => {
-    replayNextFrame();
-  }, interval);
+  requestAnimationFrame(replayLoop);
 }
 
 function resizeCanvas() {
@@ -111,22 +163,27 @@ function togglePause() {
 }
 
 function spawnBallFreeFallWrapper() {
+  prepareNewSimulation();
   spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
 function spawnBallKinematicsWrapper() {
+  prepareNewSimulation();
   spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
 function spawnBallForcesWrapper() {
+  prepareNewSimulation();
   spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
 function spawnBallFrictionWrapper() {
+  prepareNewSimulation();
   spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
 function spawnBallWorkEnergyWrapper() {
+  prepareNewSimulation();
   spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects);
 }
 
@@ -201,8 +258,11 @@ function replaySimulation() {
 
 
 function startReplay() {
-  if (replayTimer) clearTimeout(replayTimer);
-  replayNextFrame();
+  replayIndex = 0;
+  isReplaying = true;
+  lastReplayTime = null;
+  replayStartTime = performance.now();
+  requestAnimationFrame(replayLoop);
 }
 
 
@@ -221,7 +281,7 @@ function resetSimulation() {
     simComplete.classList.remove("visible");
     setTimeout(() => {
       simComplete.style.display = "none";
-    }, 500); // Wait for fade-out animation before hiding
+    }, 500);
   }
 
 
@@ -363,7 +423,7 @@ function update() {
     if (isReplaying) {
       const frame = recordedFrames[replayIndex];
       if (frame) {
-        objects = frame.map(o => ({ ...o }));
+        objects = frame.objects.map(o => ({ ...o }));
         for (const obj of objects) {
           switch (currentLesson) {
             case "freefall":
@@ -416,15 +476,18 @@ function update() {
         }, objects);
       }
 
-      const snapshot = objects.map(o => ({
-        ...o,
-        x: o.x,
-        y: o.y,
-        vx: o.vx,
-        vy: o.vy,
-        ax: o.ax,
-        ay: o.ay
-      }));
+      const snapshot = {
+        time: performance.now() - recordingStartTime, // or use a custom timer if needed
+        objects: objects.map(o => ({
+          ...o,
+          x: o.x,
+          y: o.y,
+          vx: o.vx,
+          vy: o.vy,
+          ax: o.ax,
+          ay: o.ay
+        }))
+      };
       recordedFrames.push(snapshot);
     }
 
@@ -629,10 +692,13 @@ document.querySelectorAll('#nav button').forEach(btn => {
   });
 });
 
-document.getElementById("replaySlider").addEventListener("input", (e) => {
+const slider = document.getElementById("replaySlider");
+
+slider.addEventListener("input", (e) => {
   if (recordedFrames.length > 0) {
     isReplaying = false;
     isPaused = true;
+
     const index = parseInt(e.target.value, 10);
     replayIndex = index;
     objects = recordedFrames[replayIndex].map(o => ({ ...o }));
@@ -666,6 +732,7 @@ document.getElementById("replaySlider").addEventListener("input", (e) => {
     }
   }
 });
+
 
 const desc = document.getElementById("lesson-description");
 desc.innerHTML = "<em>Click a lesson button to start!</em>";

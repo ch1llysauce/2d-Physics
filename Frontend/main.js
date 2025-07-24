@@ -68,7 +68,6 @@ function prepareNewSimulation() {
     pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
   }
 
-  objects = [];
 }
 
 function replayLoop(timestamp) {
@@ -156,35 +155,42 @@ function togglePause() {
   isPaused = !isPaused;
   if (pauseBtn) {
     pauseBtn.textContent = isPaused ? "Resume" : "Pause";
-
-    // Toggle color class
     pauseBtn.classList.toggle("pause-red", isPaused);
+  }
+
+  if (!isPaused && isReplaying) {
+    requestAnimationFrame(replayLoop); 
   }
 }
 
 function spawnBallFreeFallWrapper() {
   prepareNewSimulation();
   spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects);
+  recordingStartTime = performance.now();
 }
 
 function spawnBallKinematicsWrapper() {
   prepareNewSimulation();
   spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects);
+  recordingStartTime = performance.now();
 }
 
 function spawnBallForcesWrapper() {
   prepareNewSimulation();
   spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects);
+  recordingStartTime = performance.now();
 }
 
 function spawnBallFrictionWrapper() {
   prepareNewSimulation();
   spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects);
+  recordingStartTime = performance.now();
 }
 
 function spawnBallWorkEnergyWrapper() {
   prepareNewSimulation();
   spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects);
+  recordingStartTime = performance.now();
 }
 
 function clearCanvas() {
@@ -215,12 +221,6 @@ function finishSimulation() {
     replayBtn.classList.remove("opacity-50", "cursor-not-allowed");
   }
 
-  const pauseBtn = document.getElementById("pauseBtn");
-  if (pauseBtn) {
-    pauseBtn.disabled = true;
-    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
-  }
-
   const simComplete = document.getElementById("sim-complete");
   if (simComplete) {
     simComplete.style.display = "block";
@@ -242,12 +242,6 @@ function replaySimulation() {
     simComplete.classList.add("visible");
   }
 
-  const pauseBtn = document.getElementById("pauseBtn");
-  if (pauseBtn) {
-    pauseBtn.disabled = true;
-    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
-  }
-
   const slider = document.getElementById("replaySlider");
   slider.max = recordedFrames.length - 1;
   slider.value = 0;
@@ -258,11 +252,32 @@ function replaySimulation() {
 
 
 function startReplay() {
+  if (recordedFrames.length === 0) return;
+
+  trimIdleFrames();
+
   replayIndex = 0;
   isReplaying = true;
   lastReplayTime = null;
   replayStartTime = performance.now();
+
+  document.getElementById("pauseBtn").style.display = "inline-block";
+
   requestAnimationFrame(replayLoop);
+}
+
+function trimIdleFrames() {
+  const threshold = 0.01;
+
+  const firstActiveIndex = recordedFrames.findIndex(frame =>
+    frame.objects?.some(o =>
+      Math.abs(o.vx || 0) > threshold || Math.abs(o.vy || 0) > threshold
+    )
+  );
+
+  if (firstActiveIndex > 0) {
+    recordedFrames = recordedFrames.slice(firstActiveIndex);
+  }
 }
 
 
@@ -308,10 +323,9 @@ function resetSimulation() {
 
   const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn) {
-    pauseBtn.disabled = false;
-    pauseBtn.classList.add("opacity-50", "cursor-not-allowed");
+    pauseBtn.style.display = "none"; 
+    pauseBtn.textContent = "Pause"; 
   }
-
 }
 
 function downloadReplay() {
@@ -658,9 +672,6 @@ function updateLessonUI() {
       `;
   }
 
-  controls.innerHTML += `
-    <button onclick="togglePause()" id="pauseBtn" class="button">Pause</button>
-  `;
   const replayBtn = document.getElementById("replayBtn");
   if (replayBtn) {
     replayBtn.disabled = true;
@@ -701,7 +712,7 @@ slider.addEventListener("input", (e) => {
 
     const index = parseInt(e.target.value, 10);
     replayIndex = index;
-    objects = recordedFrames[replayIndex].map(o => ({ ...o }));
+    objects = recordedFrames[replayIndex].objects.map(o => ({ ...o }));
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);

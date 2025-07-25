@@ -71,17 +71,24 @@ function prepareNewSimulation() {
 }
 
 function replayLoop(timestamp) {
-  if (!isReplaying || !isPaused) return;
+  if (!isReplaying || isPaused) return;
 
   if (!lastReplayTime) lastReplayTime = timestamp;
 
   const currentTime = (timestamp - replayStartTime) * replaySpeed;
 
-  while (replayIndex < recordedFrames.length && recordedFrames[replayIndex].time <= currentTime) {
+  while (
+    replayIndex < recordedFrames.length - 1 &&
+    recordedFrames[replayIndex + 1].time <= currentTime
+  ) {
     replayIndex++;
+
+    const slider = document.getElementById("replaySlider");
+    if (slider) slider.value = replayIndex;
   }
 
   if (replayIndex >= recordedFrames.length) {
+    replayIndex = recordedFrames.length - 1;
     isReplaying = false;
     document.getElementById("sim-complete").classList.add("sim-complete");
     return;
@@ -152,14 +159,30 @@ function togglePause() {
   const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn?.disabled) return;
 
+  if (!isReplaying && !isPaused) return;
+
   isPaused = !isPaused;
+
   if (pauseBtn) {
     pauseBtn.textContent = isPaused ? "Resume" : "Pause";
     pauseBtn.classList.toggle("pause-red", isPaused);
+    pauseBtn.disabled = false;
+    pauseBtn.style.display = "inline-block";
   }
 
-  if (!isPaused && isReplaying) {
-    requestAnimationFrame(replayLoop); 
+  if (isReplaying) {
+    if (!isPaused) {
+      const scrubbedTime = recordedFrames[replayIndex]?.time ?? 0;
+      replayStartTime = performance.now() - scrubbedTime / replaySpeed;
+      lastReplayTime = null;
+      requestAnimationFrame(replayLoop);
+    } else {
+      pauseStartTime = performance.now();
+    }
+  } else {
+    if (!isPaused) {
+      requestAnimationFrame(update);
+    }
   }
 }
 
@@ -233,7 +256,7 @@ function replaySimulation() {
   if (recordedFrames.length === 0) return;
 
   isReplaying = true;
-  isPaused = true;
+  isPaused = false;
   isFinished = false;
   replayIndex = 0;
 
@@ -323,8 +346,8 @@ function resetSimulation() {
 
   const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn) {
-    pauseBtn.style.display = "none"; 
-    pauseBtn.textContent = "Pause"; 
+    pauseBtn.style.display = "none";
+    pauseBtn.textContent = "Pause";
   }
 }
 

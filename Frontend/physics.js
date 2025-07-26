@@ -8,14 +8,17 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
         friction = 0,
         skipCollision = false,
         collisionOnly = false,
+        PixelPerMeter = 20
     } = options;
+
+    const scaledGravity = (obj.gravity ?? gravity) * PixelPerMeter;
 
     // Only apply motion (Stage 1)
     if (skipCollision) {
         // Gravity (not for kinematics)
         if (currentLesson !== "kinematics" && currentLesson !== "forces" && !obj.restingOn) {
             if (!obj.restingOn) {
-                obj.vy += (obj.gravity ?? gravity) * deltaTime;
+                obj.vy += scaledGravity * deltaTime;
             }
         }
 
@@ -38,7 +41,19 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
             obj.vy += ay * deltaTime;
 
             if (obj.useGravity === true) {
-                obj.vy += gravity * deltaTime;
+                obj.vy += gravity * PixelPerMeter * deltaTime;
+
+                const radiusOrHalfHeight = obj.radius || obj.h / 2;
+                const bottom = obj.y + radiusOrHalfHeight;
+
+                if (bottom > canvasHeight) {
+                    obj.y = canvasHeight - radiusOrHalfHeight;
+                    obj.vy *= -(obj.restitution ?? restitution);
+
+                    if (Math.abs(obj.vy) < 0.2) {
+                        obj.vy = 0;
+                    }
+                }
             }
         }
 
@@ -68,14 +83,14 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
             }
 
             if (obj.vy !== 0) {
-                obj.vy += gravityVal * deltaTime;
+                obj.vy += gravityVal * PixelPerMeter * deltaTime;
             }
         }
 
         // Work-Energy logic
         if (currentLesson === "workEnergy") {
             if (!obj.restingOn) {
-                obj.vy += (obj.gravity ?? gravity) * deltaTime;
+                obj.vy += scaledGravity * deltaTime;
             }
         }
 
@@ -84,7 +99,7 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
         obj.y += obj.vy * deltaTime;
 
         // Floor collision
-        if (currentLesson !== "kinematics" && (currentLesson !== "forces" || obj.useGravity === true)) {
+        if (!["kinematics", "forces"].includes(currentLesson)) {
             const radiusOrHalfHeight = obj.radius || obj.h / 2;
             const bottom = obj.y + radiusOrHalfHeight;
 
@@ -102,8 +117,8 @@ export function applyPhysics(obj, options = {}, allObjects = []) {
     }
 
     // Only apply collisions (Stage 2)
-    if (collisionOnly && obj.radius) {
-        const onGround = handleGroundCollision(obj, canvasHeight, restitution);
+    if (collisionOnly && obj.radius && !["kinematics", "forces"].includes(currentLesson)) {
+        handleGroundCollision(obj, canvasHeight, restitution);
         handleCircleCollisions(obj, allObjects, { restitution });
     }
 
@@ -129,53 +144,6 @@ function handleGroundCollision(obj, canvasHeight, restitution = 0.8) {
 
     return false;
 }
-
-
-function handleVerticalStackCollision(obj, other) {
-    const alignedX = Math.abs(obj.x - other.x) < 2;
-    const verticalProximity = Math.abs(obj.y - other.y) < (obj.radius + other.radius) * 1.1;
-
-    if (!alignedX || !verticalProximity) return false;
-
-    const bounce = Math.min(obj.restitution ?? 0.8, other.restitution ?? 0.8);
-    const velocityThreshold = 0.5 * (1 - bounce);
-
-    const v1 = obj.vy;
-    const v2 = other.vy;
-    const relativeVelocity = v1 - v2;
-
-    if (
-        Math.abs(relativeVelocity) < velocityThreshold &&
-        Math.abs(v1) < velocityThreshold &&
-        Math.abs(v2) < velocityThreshold
-    ) {
-        obj.vy = 0;
-        other.vy = 0;
-        obj.restingOn = other;
-
-        // Snap stacking to prevent drift
-        obj.y = other.y - obj.radius - other.radius;
-        return true;
-    }
-
-    // Reflect bounce normally
-    if (Math.abs(other.vy) < 0.1) {
-        obj.vy = -v1 * bounce;
-    } else if (Math.abs(obj.vy) < 0.1) {
-        other.vy = -v2 * bounce;
-    } else {
-        obj.vy = -v2 * bounce;
-        other.vy = -v1 * bounce;
-    }
-
-    // Optional damping to stop infinite motion
-    if (Math.abs(obj.vy) < 0.01) obj.vy = 0;
-    if (Math.abs(other.vy) < 0.01) other.vy = 0;
-
-    return true;
-}
-
-
 
 function updateRestingStatus(obj) {
     if (!obj.restingOn) return;

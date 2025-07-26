@@ -178,12 +178,12 @@ export function drawVelocityArrow(ctx, obj, PixelPerMeter, scale = 1) {
   const vx = obj.vx ?? 0;
   const vy = obj.vy ?? 0;
   const speed = Math.hypot(vx, vy);
-  if (speed < 0.01) return; // Skip near-zero arrows
+  if (speed < 0.01) return;
 
-  const startX = obj.x * PixelPerMeter;
-  const startY = ctx.canvas.height - obj.y * PixelPerMeter;
+  const startX = obj.x;
+  const startY = obj.y;
   const endX = startX + vx * PixelPerMeter * scale;
-  const endY = startY - vy * PixelPerMeter * scale;
+  const endY = startY + vy * PixelPerMeter * scale;
 
   ctx.beginPath();
   ctx.moveTo(startX, startY);
@@ -203,6 +203,7 @@ export function drawVelocityArrow(ctx, obj, PixelPerMeter, scale = 1) {
   ctx.fillStyle = "#ff0000";
   ctx.fill();
 }
+
 
 
 

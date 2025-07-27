@@ -431,6 +431,8 @@ function spawnBallWorkEnergyWrapper() {
 }
 
 function clearCanvas() {
+   if (!isPaused) return;
+  
   objects = [];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);

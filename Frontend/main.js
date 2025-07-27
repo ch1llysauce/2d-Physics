@@ -10,6 +10,7 @@ const ctx = canvas.getContext("2d");
 let isFinished = false;
 let isReplaying = false;
 let recordedFrames = [];
+let filteredFrames = [];
 let replayIndex = 0
 let replayTimer = null;
 let isStarted = false;
@@ -19,10 +20,40 @@ let replayStartTime = 0;
 let recordingStartTime = performance.now();
 let simulationStartTime = null;
 let totalElapsedTime = 0;
+let pauseStartTime = 0;
+let totalPausedDuration = 0;
 
 document.getElementById("replaySpeed").addEventListener("change", (e) => {
   replaySpeed = parseFloat(e.target.value);
 });
+
+function toggleSimulationPause() {
+  const startBtn = document.getElementById("startBtn");
+
+  if (!isStarted && !isReplaying && !isFinished && objects.length > 0) {
+    startSimulation();
+    startBtn.textContent = "Pause";
+    return;
+  }
+
+  isPaused = !isPaused;
+  startBtn.textContent = isPaused ? "Resume" : "Pause";
+  startBtn.classList.toggle("pause-red", isPaused);
+  startBtn.style.display = "inline-block";
+
+   if (isPaused) {
+    pauseStartTime = performance.now();
+  } else {
+    const now = performance.now();
+    const pausedDuration = now - pauseStartTime;
+    totalPausedDuration += pausedDuration;
+
+    recordingStartTime += pausedDuration;
+
+    requestAnimationFrame(update); 
+  }
+}
+
 
 function startSimulation() {
   if (isStarted || isReplaying || isFinished || objects.length === 0) return;
@@ -32,16 +63,28 @@ function startSimulation() {
   simulationStartTime = performance.now();
   recordingStartTime = performance.now();
 
-  const pauseBtn = document.getElementById("pauseBtn");
-  if (pauseBtn) {
-    pauseBtn.disabled = false;
-    pauseBtn.style.display = "inline-block";
-  }
-
   const startBtn = document.getElementById("startBtn");
-  if (startBtn) {
-    startBtn.disabled = true;
-    startBtn.classList.add("opacity-50", "cursor-not-allowed");
+  startBtn.textContent = "Pause";
+
+
+  if (isReplaying && !isPaused && replayIndex < recordedFrames.length) {
+    const now = performance.now();
+    const elapsed = (now - replayStartTime) * replaySpeed / 1000;
+
+    const timerDisplay = document.getElementById("timerDisplay");
+    if (timerDisplay) {
+      timerDisplay.innerText = `${elapsed.toFixed(2)} s`;
+    }
+
+    if (replayIndex == recordedFrames.length - 1) {
+      isReplaying = false;
+      isFinished = true;
+
+      const lastFrame = recordedFrames[replayIndex];
+      if (timerDisplay && lastFrame?.time != null) {
+        timerDisplay.innerText = `${(lastFrame.time / 1000).toFixed(2)} s`;
+      }
+    }
   }
 
   requestAnimationFrame(update);
@@ -119,8 +162,8 @@ function replayLoop(timestamp) {
 
 
   while (
-    replayIndex < recordedFrames.length - 1 &&
-    recordedFrames[replayIndex + 1].time <= currentTime
+    replayIndex < filteredFrames.length - 1 &&
+    filteredFrames[replayIndex + 1].time <= currentTime
   ) {
     replayIndex++;
 
@@ -128,14 +171,14 @@ function replayLoop(timestamp) {
     if (slider) slider.value = replayIndex;
   }
 
-  if (replayIndex >= recordedFrames.length && currentTime >= recordedFrames[recordedFrames.length - 1].time) {
-    replayIndex = recordedFrames.length - 1;
+  if (replayIndex >= filteredFrames.length && currentTime >= filteredFrames[filteredFrames.length - 1]?.time) {
+    replayIndex = filteredFrames.length - 1;
     isReplaying = false;
     return;
 
   }
 
-  const frame = recordedFrames[replayIndex];
+  const frame = filteredFrames[replayIndex];
   objects = frame.objects.map(o => ({ ...o }));
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -171,16 +214,16 @@ function replayLoop(timestamp) {
     slider.addEventListener("input", handleSliderScrub);
   }
 
-  if (!isReplaying && !isPaused && simulationStartTime !== null) {
-    const now = performance.now();
-    const currentElapsed = (now - simulationStartTime) / 1000;
-    const displayTime = totalElapsedTime + currentElapsed;
+  /*if (!isReplaying && !isPaused && simulationStartTime !== null) {
+   const now = performance.now();
+   const currentElapsed = (now - simulationStartTime) / 1000;
+   const displayTime = totalElapsedTime + currentElapsed;
 
-    const timerDisplay = document.getElementById("timerDisplay");
-    if (timerDisplay) {
-      timerDisplay.innerText = `${displayTime.toFixed(2)} s`;
-    }
-  }
+   const timerDisplay = document.getElementById("timerDisplay");
+   if (timerDisplay) {
+     timerDisplay.innerText = `${displayTime.toFixed(2)} s`;
+   }
+  } */
 
 
   if (isReplaying && !isPaused && replayIndex < recordedFrames.length) {
@@ -210,13 +253,16 @@ function replayLoop(timestamp) {
     pauseBtn.textContent = "Pause";
     pauseBtn.classList.remove("pause-red");
   }
-
   requestAnimationFrame(replayLoop);
 }
 
 function handleSliderScrub(e) {
-  const index = parseInt(e.target.value);
+  let index = parseInt(e.target.value);
   if (isNaN(index) || index < 0 || index >= recordedFrames.length) return;
+
+  while (index < recordedFrames.length && recordedFrames[index].paused) {
+    index++;
+  }
 
   replayIndex = index;
   isReplaying = false;
@@ -354,7 +400,6 @@ function spawnBallFreeFallWrapper() {
   spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects);
   simulationStartTime = performance.now();
   recordingStartTime = performance.now();
-  startSimulation();
 }
 
 function spawnBallKinematicsWrapper() {
@@ -362,7 +407,6 @@ function spawnBallKinematicsWrapper() {
   spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects);
   simulationStartTime = performance.now();
   recordingStartTime = performance.now();
-  startSimulation();
 }
 
 function spawnBallForcesWrapper() {
@@ -370,7 +414,6 @@ function spawnBallForcesWrapper() {
   spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects);
   simulationStartTime = performance.now();
   recordingStartTime = performance.now();
-  startSimulation();
 }
 
 function spawnBallFrictionWrapper() {
@@ -378,7 +421,6 @@ function spawnBallFrictionWrapper() {
   spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects);
   simulationStartTime = performance.now();
   recordingStartTime = performance.now();
-  startSimulation();
 }
 
 function spawnBallWorkEnergyWrapper() {
@@ -386,7 +428,6 @@ function spawnBallWorkEnergyWrapper() {
   spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects);
   simulationStartTime = performance.now();
   recordingStartTime = performance.now();
-  startSimulation();
 }
 
 function clearCanvas() {
@@ -403,6 +444,13 @@ function finishSimulation() {
   if (spawnBtn) {
     spawnBtn.disabled = true;
     spawnBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const startBtn = document.getElementById("startBtn");
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.classList.add("opacity-50", "cursor-not-allowed");
+    startBtn.textContent = "Start";
   }
 
   const clearBtn = document.getElementById("clearBtn");
@@ -450,7 +498,7 @@ function replaySimulation() {
 function startReplay() {
   if (recordedFrames.length === 0) return;
 
-  trimIdleFrames();
+  filteredFrames = trimIdleFrames();
 
   replayIndex = 0;
   isReplaying = true;
@@ -472,8 +520,9 @@ function trimIdleFrames() {
   );
 
   if (firstActiveIndex > 0) {
-    recordedFrames = recordedFrames.slice(firstActiveIndex);
+    return recordedFrames.slice(firstActiveIndex);
   }
+  return recordedFrames;
 }
 
 
@@ -688,8 +737,9 @@ function update() {
         }, objects);
       }
 
+     if(!isPaused  && isStarted && objects.some(o => o.vx !== 0 || o.vy !== 0 || o.ax !== 0 || o.ay !== 0)){ 
       const snapshot = {
-        time: performance.now() - recordingStartTime, // or use a custom timer if needed
+        time: performance.now() - recordingStartTime,
         objects: objects.map(o => ({
           ...o,
           x: o.x,
@@ -702,6 +752,7 @@ function update() {
       };
       recordedFrames.push(snapshot);
     }
+  }
 
     // Draw all objects
     for (const obj of objects) {
@@ -763,7 +814,7 @@ function updateLessonUI() {
     controls.innerHTML = `
         <div id="freefall-controls">
           <button id="spawnBtn" onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="startSimulation()">Start</button>
+          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
           <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
           <button id="replayBtn" onclick="replaySimulation()">Replay</button>
@@ -785,7 +836,7 @@ function updateLessonUI() {
     controls.innerHTML = `
         <div id="kinematics-controls">
           <button id="spawnBtn" onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="startSimulation()">Start</button>
+          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
           <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
           <button id="replayBtn" onclick="replaySimulation()">Replay</button>
@@ -807,7 +858,7 @@ function updateLessonUI() {
     controls.innerHTML = `
         <div id="forces-controls">
           <button id="spawnBtn" onclick="spawnBallForcesWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="startSimulation()">Start</button>
+          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
           <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
           <button id="replayBtn" onclick="replaySimulation()">Replay</button>
@@ -834,7 +885,7 @@ function updateLessonUI() {
     controls.innerHTML = `
         <div id="friction-controls">
           <button id="spawnBtn" onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="startSimulation()">Start</button>
+          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
           <button id="clearBtn" onclick="clearCanvas()">Clear</button>
           <button onclick="finishSimulation()">Finish</button>
           <button id="replayBtn" onclick="replaySimulation()">Replay</button>
@@ -857,7 +908,7 @@ function updateLessonUI() {
     controls.innerHTML = `
       <div id="work-energy-controls">
       <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Ball</button>
-      <button id="startBtn" onclick="startSimulation()">Start</button>
+      <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
       <button id="clearBtn" onclick="clearCanvas()">Clear</button>
       <button onclick="finishSimulation()">Finish</button>
       <button id="replayBtn" onclick="replaySimulation()">Replay</button>
@@ -890,7 +941,8 @@ function updateLessonUI() {
   window.clearCanvas = clearCanvas;
   window.switchLesson = switchLesson;
   window.togglePause = togglePause;
-  window.startSimulation = startSimulation;
+
+  window.toggleSimulationPause = toggleSimulationPause;
   window.finishSimulation = finishSimulation;
   window.replaySimulation = replaySimulation;
   window.resetSimulation = resetSimulation;

@@ -1,6 +1,8 @@
 import { getAccelerationFromForce } from "./physics.js";
 
 export function drawObject(ctx, obj, PixelPerMeter, canvas) {
+  canvas = canvas || ctx.canvas;
+
   ctx.beginPath();
   if (obj.radius) {
     ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
@@ -91,6 +93,8 @@ export function drawFrictionObject(ctx, obj, PixelPerMeter) {
 }
 
 export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
+  canvas = canvas || ctx.canvas;
+
   ctx.beginPath();
   ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
   ctx.fillStyle = "#828934";
@@ -121,7 +125,7 @@ export function drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas) {
 export function drawRuler(ctx, canvas, PixelPerMeter, RulerStartX) {
   const rulerX = RulerStartX;
   const rulerY = canvas.height - 30;
-  const interval = PixelPerMeter; // 1 meter per tick (e.g. 50px)
+  const interval = PixelPerMeter; 
 
   ctx.strokeStyle = "#888";
   ctx.lineWidth = 1;

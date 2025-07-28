@@ -41,7 +41,7 @@ function toggleSimulationPause() {
   startBtn.classList.toggle("pause-red", isPaused);
   startBtn.style.display = "inline-block";
 
-   if (isPaused) {
+  if (isPaused) {
     pauseStartTime = performance.now();
   } else {
     const now = performance.now();
@@ -50,7 +50,7 @@ function toggleSimulationPause() {
 
     recordingStartTime += pausedDuration;
 
-    requestAnimationFrame(update); 
+    requestAnimationFrame(update);
   }
 }
 
@@ -181,7 +181,8 @@ function replayLoop(timestamp) {
   const frame = filteredFrames[replayIndex];
   objects = frame.objects.map(o => ({ ...o }));
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
 
   for (const obj of objects) {
@@ -215,14 +216,14 @@ function replayLoop(timestamp) {
   }
 
   /*if (!isReplaying && !isPaused && simulationStartTime !== null) {
-   const now = performance.now();
-   const currentElapsed = (now - simulationStartTime) / 1000;
-   const displayTime = totalElapsedTime + currentElapsed;
+  const now = performance.now();
+  const currentElapsed = (now - simulationStartTime) / 1000;
+  const displayTime = totalElapsedTime + currentElapsed;
 
-   const timerDisplay = document.getElementById("timerDisplay");
-   if (timerDisplay) {
-     timerDisplay.innerText = `${displayTime.toFixed(2)} s`;
-   }
+  const timerDisplay = document.getElementById("timerDisplay");
+  if (timerDisplay) {
+    timerDisplay.innerText = `${displayTime.toFixed(2)} s`;
+  }
   } */
 
 
@@ -270,7 +271,8 @@ function handleSliderScrub(e) {
 
   const frame = recordedFrames[replayIndex];
   objects = frame.objects.map(o => ({ ...o }));
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
 
   for (const obj of objects) {
@@ -383,7 +385,8 @@ function drawCurrentReplayFrame() {
   const frame = recordedFrames[replayIndex];
   if (frame) {
     objects = frame.objects.map(o => ({ ...o }));
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
     for (const obj of objects) {
       drawObject(ctx, obj);
@@ -431,10 +434,10 @@ function spawnBallWorkEnergyWrapper() {
 }
 
 function clearCanvas() {
-   if (!isPaused) return;
-  
   objects = [];
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
 }
 
@@ -590,76 +593,121 @@ function downloadReplay() {
   URL.revokeObjectURL(url);
 }
 
-function downloadReplayAsVideo(frameRate = 60) {
+function downloadReplayAsVideo() {
   if (recordedFrames.length === 0) return;
 
-  const stream = canvas.captureStream(frameRate);
-  const mediaRecorder = new MediaRecorder(stream, {
-    mimeType: "video/webm" // browsers don't support .mp4 directly
-  });
+  const stream = canvas.captureStream(60);
+  const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
-  const recordedChunks = [];
+  const chunks = [];
 
-  mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) {
-      recordedChunks.push(e.data);
-    }
+  recorder.ondataavailable = e => {
+    if (e.data.size > 0) chunks.push(e.data);
   };
 
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks, { type: "video/webm" });
+  recorder.onstop = () => {
+    console.log("Recording stopped");
+    const blob = new Blob(chunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
+
+    console.log("downloading replay.webm");
+    console.log("Downloading URL: ", url);
 
     const a = document.createElement("a");
     a.href = url;
     a.download = "replay.webm";
+    document.body.appendChild(a);
     a.click();
-
+    a.remove();
     URL.revokeObjectURL(url);
+
+    clearCanvas();
   };
 
-  let index = 0;
-  mediaRecorder.start();
+  recorder.start();
+  console.log("Recording started");
 
-  const interval = 1000 / frameRate;
-  const replayInterval = setInterval(() => {
+  let index = 0;
+  let startTime = null;
+
+  function drawNextFrame(timestamp) {
+    if (startTime === null) {
+      startTime = timestamp;
+    }
+
     if (index >= recordedFrames.length) {
-      clearInterval(replayInterval);
-      mediaRecorder.stop();
+      console.log("All frames rendered");
+      recorder.stop();
       return;
     }
 
-    // Restore frame
-    const frame = recordedFrames[index++];
-    objects = frame.data.map(o => ({ ...o }));
-    clearCanvas();
+    const currentTime = timestamp - startTime; 
+    const frame = recordedFrames[index];
+    const nextFrame = recordedFrames[index + 1];
+
+    if (frame.time > currentTime) {
+      requestAnimationFrame(drawNextFrame);
+      return;
+    }
+
+    currentLesson = frame.lesson;
+    objects = frame.objects.map(o => ({ ...o }));
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawAllObjects();
-  }, interval);
+
+    ctx.fillStyle = "red";
+    ctx.fillText("Frame " + index, 20, 20);
+
+    index++;
+    requestAnimationFrame(drawNextFrame);
+  }
+
+  setTimeout(() => {
+    requestAnimationFrame(drawNextFrame);
+  }, 100);
 }
+
+
 
 function drawAllObjects() {
   if (!objects) return;
 
-  clearCanvas(); // your own clear function
-
+  if (!currentLesson) {
+    console.warn("Missing lesson in frame");
+  }
   switch (currentLesson) {
-    case "Free Fall":
-      objects.forEach(obj => drawObject(ctx, obj, PixelPerMeter, RulerStartX));
+    case "freefall":
+      objects.forEach(obj => {
+        drawObject(ctx, obj, PixelPerMeter, canvas);
+        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+      });
       break;
-    case "Kinematics":
-      objects.forEach(obj => drawKinematicsObject(ctx, obj, PixelPerMeter, RulerStartX));
+    case "kinematics":
+      objects.forEach(obj => {
+        drawKinematicsObject(ctx, obj, PixelPerMeter, RulerStartX);
+        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+      });
       break;
-    case "Forces":
-      objects.forEach(obj => drawForcesObject(ctx, obj, PixelPerMeter, RulerStartX));
+    case "forces":
+      objects.forEach(obj => {
+        drawForcesObject(ctx, obj, PixelPerMeter, RulerStartX);
+        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX)
+      });
       break;
-    case "Friction":
-      objects.forEach(obj => drawFrictionObject(ctx, obj, PixelPerMeter, RulerStartX));
+    case "friction":
+      objects.forEach(obj => {
+        drawFrictionObject(ctx, obj, PixelPerMeter, RulerStartX);
+        // drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+      });
       break;
-    case "Work & Energy":
-      objects.forEach(obj => drawWorkEnergyObject(ctx, obj, PixelPerMeter, RulerStartX));
+    case "workEnergy":
+      objects.forEach(obj => {
+        drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
+        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+      });
       break;
-    default:
-      objects.forEach(obj => drawObject(ctx, obj, PixelPerMeter, RulerStartX));
   }
 
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
@@ -673,7 +721,8 @@ function update() {
   lastTime = now;
   deltaTime = Math.min(deltaTime, 0.05)
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
 
@@ -739,22 +788,23 @@ function update() {
         }, objects);
       }
 
-     if(!isPaused  && isStarted && objects.some(o => o.vx !== 0 || o.vy !== 0 || o.ax !== 0 || o.ay !== 0)){ 
-      const snapshot = {
-        time: performance.now() - recordingStartTime,
-        objects: objects.map(o => ({
-          ...o,
-          x: o.x,
-          y: o.y,
-          vx: o.vx,
-          vy: o.vy,
-          ax: o.ax,
-          ay: o.ay
-        }))
-      };
-      recordedFrames.push(snapshot);
+      if (!isPaused && isStarted && objects.some(o => o.vx !== 0 || o.vy !== 0 || o.ax !== 0 || o.ay !== 0)) {
+        const snapshot = {
+          time: performance.now() - recordingStartTime,
+          lesson: currentLesson,
+          objects: objects.map(o => ({
+            ...o,
+            x: o.x,
+            y: o.y,
+            vx: o.vx,
+            vy: o.vy,
+            ax: o.ax,
+            ay: o.ay
+          }))
+        };
+        recordedFrames.push(snapshot);
+      }
     }
-  }
 
     // Draw all objects
     for (const obj of objects) {
@@ -814,118 +864,118 @@ function updateLessonUI() {
   if (currentLesson === "freefall") {
     desc.innerHTML = "This lesson demonstrates the effect of gravity on objects. You can add objects to the canvas and see how they fall under the influence of gravity.";
     controls.innerHTML = `
-        <div id="freefall-controls">
-          <button id="spawnBtn" onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
-          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
-          <button onclick="finishSimulation()">Finish</button>
-          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
-          <button onclick="resetSimulation()">Reset</button>
-          <br/><br/>
-          Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-          Initial Velocity: <input id="initVel" type="number" value="0" step="0.5" style="width: 60px" />
-          <br/><br/>
-          Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
-          Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
-          Restitution (0-1): <input id="restitution" type="number" value="0.8" step="0.1" min="0" max="1" style="width: 60px" />
-          </div>
-      `;
+          <div id="freefall-controls">
+            <button id="spawnBtn" onclick="spawnBallFreeFallWrapper()">Spawn Ball</button>
+            <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
+            <button id="clearBtn" onclick="clearCanvas()">Clear</button>
+            <button onclick="finishSimulation()">Finish</button>
+            <button id="replayBtn" onclick="replaySimulation()">Replay</button>
+            <button onclick="resetSimulation()">Reset</button>
+            <br/><br/>
+            Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+            Initial Velocity: <input id="initVel" type="number" value="0" step="0.5" style="width: 60px" />
+            <br/><br/>
+            Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
+            Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
+            Restitution (0-1): <input id="restitution" type="number" value="0.8" step="0.1" min="0" max="1" style="width: 60px" />
+            </div>
+        `;
   }
 
   if (currentLesson === "kinematics") {
 
     desc.innerHTML = "This screen demonstrates velocity and acceleration without forces.";
     controls.innerHTML = `
-        <div id="kinematics-controls">
-          <button id="spawnBtn" onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
-          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
-          <button onclick="finishSimulation()">Finish</button>
-          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
-          <button onclick="resetSimulation()">Reset</button>
-          <br/><br/>
-          Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
-          <br/><br/>
-          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
-          Acceleration X: <input id="accelX" type="number" value="0" step="0.5" style="width: 60px" />
-          Acceleration Y: <input id="accelY" type="number" value="0" step="0.5" style="width: 60px" />
-          </div>
-      `;
+          <div id="kinematics-controls">
+            <button id="spawnBtn" onclick="spawnBallKinematicsWrapper()">Spawn Ball</button>
+            <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
+            <button id="clearBtn" onclick="clearCanvas()">Clear</button>
+            <button onclick="finishSimulation()">Finish</button>
+            <button id="replayBtn" onclick="replaySimulation()">Replay</button>
+            <button onclick="resetSimulation()">Reset</button>
+            <br/><br/>
+            Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+            <br/><br/>
+            Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
+            Acceleration X: <input id="accelX" type="number" value="0" step="0.5" style="width: 60px" />
+            Acceleration Y: <input id="accelY" type="number" value="0" step="0.5" style="width: 60px" />
+            </div>
+        `;
   }
 
   if (currentLesson === "forces") {
     desc.innerHTML = "This lesson demonstrates Newton's Second Law: how force, mass, and angle affect an object's acceleration and motion.";
     controls.innerHTML = `
-        <div id="forces-controls">
-          <button id="spawnBtn" onclick="spawnBallForcesWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
-          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
-          <button onclick="finishSimulation()">Finish</button>
-          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
-          <button onclick="resetSimulation()">Reset</button>
-          <br/><br/>
-          Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
-          Mass: <input id="mass" type="number" value="1" step="0.1" min="0" style="width: 60px" />
-          Angle: <input id="angle" type="number" value="0" step="1" style="width: 60px" />
-          <br/><br/>
-          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
-          <br/><br/>
-          <div class="center-checkbox">
-          <label for="useGravity"><input type="checkbox" id="useGravity" checked /> Use Gravity</label>
+          <div id="forces-controls">
+            <button id="spawnBtn" onclick="spawnBallForcesWrapper()">Spawn Ball</button>
+            <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
+            <button id="clearBtn" onclick="clearCanvas()">Clear</button>
+            <button onclick="finishSimulation()">Finish</button>
+            <button id="replayBtn" onclick="replaySimulation()">Replay</button>
+            <button onclick="resetSimulation()">Reset</button>
+            <br/><br/>
+            Force: <input id="force" type="number" value="10" step="0.1" style="width: 60px" />
+            Mass: <input id="mass" type="number" value="1" step="0.1" min="0" style="width: 60px" />
+            Angle: <input id="angle" type="number" value="0" step="1" style="width: 60px" />
+            <br/><br/>
+            Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+            <br/><br/>
+            <div class="center-checkbox">
+            <label for="useGravity"><input type="checkbox" id="useGravity" checked /> Use Gravity</label>
+            </div>
           </div>
-        </div>
-        `;
+          `;
   }
 
   if (currentLesson === "friction") {
     desc.innerHTML = "This lesson demonstrates the effect of friction on objects. You can add objects and apply forces to see how they move with friction.";
     controls.innerHTML = `
-        <div id="friction-controls">
-          <button id="spawnBtn" onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
-          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
-          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
-          <button onclick="finishSimulation()">Finish</button>
-          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
-          <button onclick="resetSimulation()">Reset</button>
-          <br/><br/>
-          Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
-          Friction Coefficient: <input id="friction" type="number" value="0.5" step="0.01" min="0" max="1" style="width: 60px" />
-          <br/><br/>
-          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
-          Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
-          Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
-          Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-        </div>
-      `;
+          <div id="friction-controls">
+            <button id="spawnBtn" onclick="spawnBallFrictionWrapper()">Spawn Ball</button>
+            <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
+            <button id="clearBtn" onclick="clearCanvas()">Clear</button>
+            <button onclick="finishSimulation()">Finish</button>
+            <button id="replayBtn" onclick="replaySimulation()">Replay</button>
+            <button onclick="resetSimulation()">Reset</button>
+            <br/><br/>
+            Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
+            Friction Coefficient: <input id="friction" type="number" value="0.5" step="0.01" min="0" max="1" style="width: 60px" />
+            <br/><br/>
+            Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.1" style="width: 60px" />
+            Initial X Position: <input id="initX" type="number" value="0" step="0.5" style="width: 60px" />
+            Initial Y Position: <input id="initY" type="number" value="0" step="0.5" style="width: 60px" />
+            Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+          </div>
+        `;
   }
 
   if (currentLesson === "workEnergy") {
     desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
     controls.innerHTML = `
-      <div id="work-energy-controls">
-      <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Ball</button>
-      <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
-      <button id="clearBtn" onclick="clearCanvas()">Clear</button>
-      <button onclick="finishSimulation()">Finish</button>
-      <button id="replayBtn" onclick="replaySimulation()">Replay</button>
-      <button onclick="resetSimulation()">Reset</button>
-      <br/><br/>
-      Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
-      Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-      Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
-      Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
-      <br/><br/>
-      Restitution: <input id="restitution" type="number" value="0.8" step="0.1" style="width: 60px" />
-      Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
-      Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
-      </div>
-      `;
+        <div id="work-energy-controls">
+        <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Ball</button>
+        <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
+        <button id="clearBtn" onclick="clearCanvas()">Clear</button>
+        <button onclick="finishSimulation()">Finish</button>
+        <button id="replayBtn" onclick="replaySimulation()">Replay</button>
+        <button onclick="resetSimulation()">Reset</button>
+        <br/><br/>
+        Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
+        Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+        Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
+        Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
+        <br/><br/>
+        Restitution: <input id="restitution" type="number" value="0.8" step="0.1" style="width: 60px" />
+        Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
+        Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
+        </div>
+        `;
   }
 
   const replayBtn = document.getElementById("replayBtn");
@@ -972,7 +1022,8 @@ slider.addEventListener("input", (e) => {
     replayIndex = index;
     objects = recordedFrames[replayIndex].objects.map(o => ({ ...o }));
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawRuler(ctx, canvas, PixelPerMeter, RulerStartX);
 
     for (const obj of objects) {

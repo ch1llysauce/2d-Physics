@@ -6,7 +6,6 @@ const RulerStartX = 30;
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-
 let isFinished = false;
 let isReplaying = false;
 let recordedFrames = [];

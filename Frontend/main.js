@@ -318,7 +318,7 @@ function handleSliderScrub(e) {
 function resizeCanvas() {
   const wrapper = canvas.parentElement;
   const width = wrapper.clientWidth;
-  const height = width / 2; // 2:1 aspect ratio
+  const height = width / 2; 
 
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;

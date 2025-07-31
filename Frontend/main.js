@@ -955,28 +955,28 @@ function updateLessonUI() {
         `;
   }
 
-  if (currentLesson === "workEnergy") {
-    desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
-    controls.innerHTML = `
-        <div id="work-energy-controls">
-        <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Ball</button>
-        <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
-        <button id="clearBtn" onclick="clearCanvas()">Clear</button>
-        <button onclick="finishSimulation()">Finish</button>
-        <button id="replayBtn" onclick="replaySimulation()">Replay</button>
-        <button onclick="resetSimulation()">Reset</button>
-        <br/><br/>
-        Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
-        Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
-        Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
-        Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
-        <br/><br/>
-        Restitution: <input id="restitution" type="number" value="0.8" step="0.1" style="width: 60px" />
-        Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
-        Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
-        </div>
-        `;
-  }
+    if (currentLesson === "workEnergy") {
+      desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
+      controls.innerHTML = `
+          <div id="work-energy-controls">
+          <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Ball</button>
+          <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
+          <button id="clearBtn" onclick="clearCanvas()">Clear</button>
+          <button onclick="finishSimulation()">Finish</button>
+          <button id="replayBtn" onclick="replaySimulation()">Replay</button>
+          <button onclick="resetSimulation()">Reset</button>
+          <br/><br/>
+          Mass: <input id="mass" type="number" value="1" step="0.1" style="width: 60px" />
+          Gravity: <input id="gravity" type="number" value="9.8" step="0.1" style="width: 60px" />
+          Initial X Position: <input id="initX" type="number" value="0" step="1" style="width: 60px" />
+          Initial Height (Y): <input id="initHeight" type="number" value="10" step="1" style="width: 60px" />
+          <br/><br/>
+          Restitution: <input id="restitution" type="number" value="0.8" step="0.1" style="width: 60px" />
+          Initial Velocity X: <input id="initVelX" type="number" value="0" step="0.5" style="width: 60px" />
+          Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
+          </div>
+          `;
+    }
 
   const replayBtn = document.getElementById("replayBtn");
   if (replayBtn) {
@@ -994,12 +994,12 @@ function updateLessonUI() {
   window.switchLesson = switchLesson;
   window.togglePause = togglePause;
 
-  window.toggleSimulationPause = toggleSimulationPause;
-  window.finishSimulation = finishSimulation;
-  window.replaySimulation = replaySimulation;
-  window.resetSimulation = resetSimulation;
-  window.downloadReplay = downloadReplay;
-  window.downloadReplayAsVideo = downloadReplayAsVideo;
+    window.toggleSimulationPause = toggleSimulationPause;
+    window.finishSimulation = finishSimulation;
+    window.replaySimulation = replaySimulation;
+    window.resetSimulation = resetSimulation;
+    window.downloadReplay = downloadReplay;
+    window.downloadReplayAsVideo = downloadReplayAsVideo;
 
 }
 

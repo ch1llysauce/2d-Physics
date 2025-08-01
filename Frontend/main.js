@@ -57,6 +57,8 @@ function toggleSimulationPause() {
 function startSimulation() {
   if (isStarted || isReplaying || isFinished || objects.length === 0) return;
 
+  console.log("Starting simulation. Objects length:", objects.length);
+
   isStarted = true;
   isPaused = false;
   simulationStartTime = performance.now();
@@ -84,6 +86,7 @@ function startSimulation() {
         timerDisplay.innerText = `${(lastFrame.time / 1000).toFixed(2)} s`;
       }
     }
+
   }
 
   requestAnimationFrame(update);
@@ -213,18 +216,6 @@ function replayLoop(timestamp) {
   if (slider) {
     slider.addEventListener("input", handleSliderScrub);
   }
-
-  /*if (!isReplaying && !isPaused && simulationStartTime !== null) {
-  const now = performance.now();
-  const currentElapsed = (now - simulationStartTime) / 1000;
-  const displayTime = totalElapsedTime + currentElapsed;
-
-  const timerDisplay = document.getElementById("timerDisplay");
-  if (timerDisplay) {
-    timerDisplay.innerText = `${displayTime.toFixed(2)} s`;
-  }
-  } */
-
 
   if (isReplaying && !isPaused && replayIndex < recordedFrames.length) {
     const now = performance.now();
@@ -615,11 +606,11 @@ function downloadReplay() {
 function downloadReplayAsVideo(playbackSpeed = 1.0) {
   if (recordedFrames.length === 0) return;
 
-  const stream = canvas.captureStream(60); 
+  const stream = canvas.captureStream(60);
   const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
   const chunks = [];
   let hasRenderedLastFrame = false;
-  
+
   recorder.ondataavailable = e => {
     if (e.data.size > 0) chunks.push(e.data);
   };
@@ -739,6 +730,17 @@ function update() {
 
   ctx.save();
 
+  const timerDisplay = document.getElementById("timerDisplay");
+  if (timerDisplay) {
+    if (isReplaying && recordedFrames[replayIndex]) {
+      const replayTime = recordedFrames[replayIndex].time / 1000;
+      timerDisplay.innerText = `${replayTime.toFixed(2)} s`;
+    } else if (isStarted && !isPaused && !isFinished && simulationStartTime !== null) {
+      const elapsed = (performance.now() - simulationStartTime) / 1000;
+      timerDisplay.innerText = `${elapsed.toFixed(2)} s`;
+    }
+  }
+  
   if (!currentLesson) {
     ctx.restore();
   } else {
@@ -771,9 +773,11 @@ function update() {
           }
         }
       }
+
       ctx.restore();
       requestAnimationFrame(update);
       return;
+
     } else if (!isPaused && !isFinished && isStarted) {
       const gravity = parseFloat(document.getElementById("gravity")?.value || 9.8);
       const restitution = parseFloat(document.getElementById("restitution")?.value || 0.8);

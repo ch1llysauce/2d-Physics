@@ -317,7 +317,7 @@ function handleSliderScrub(e) {
 function resizeCanvas() {
   const wrapper = canvas.parentElement;
   const width = wrapper.clientWidth;
-  const height = width / 2; 
+  const height = width / 2;
 
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
@@ -398,38 +398,58 @@ function drawCurrentReplayFrame() {
 
 
 function spawnBallFreeFallWrapper() {
-  prepareNewSimulation();
+  if (!isStarted && !isReplaying) {
+    prepareNewSimulation();
+  }
   spawnBallFreeFall(canvas, PixelPerMeter, RulerStartX, objects);
-  simulationStartTime = performance.now();
-  recordingStartTime = performance.now();
+  if (!simulationStartTime) {
+    simulationStartTime = performance.now();
+    recordingStartTime = performance.now();
+  }
 }
 
 function spawnBallKinematicsWrapper() {
-  prepareNewSimulation();
+  if (!isStarted && !isReplaying) {
+    prepareNewSimulation();
+  }
   spawnBallKinematics(canvas, PixelPerMeter, RulerStartX, objects);
-  simulationStartTime = performance.now();
-  recordingStartTime = performance.now();
+  if (!simulationStartTime) {
+    simulationStartTime = performance.now();
+    recordingStartTime = performance.now();
+  }
 }
 
 function spawnBallForcesWrapper() {
-  prepareNewSimulation();
+  if (!isStarted && !isReplaying) {
+    prepareNewSimulation();
+  }
   spawnBallForces(canvas, PixelPerMeter, RulerStartX, objects);
-  simulationStartTime = performance.now();
-  recordingStartTime = performance.now();
+  if (!simulationStartTime) {
+    simulationStartTime = performance.now();
+    recordingStartTime = performance.now();
+  }
 }
 
 function spawnBallFrictionWrapper() {
-  prepareNewSimulation();
+  if (!isStarted && !isReplaying) {
+    prepareNewSimulation();
+  }
   spawnBallFriction(canvas, PixelPerMeter, RulerStartX, objects);
-  simulationStartTime = performance.now();
-  recordingStartTime = performance.now();
+  if (!simulationStartTime) {
+    simulationStartTime = performance.now();
+    recordingStartTime = performance.now();
+  }
 }
 
 function spawnBallWorkEnergyWrapper() {
-  prepareNewSimulation();
+  if (!isStarted && !isReplaying) {
+    prepareNewSimulation();
+  }
   spawnBallWorkEnergy(canvas, PixelPerMeter, RulerStartX, objects);
-  simulationStartTime = performance.now();
-  recordingStartTime = performance.now();
+  if (!simulationStartTime) {
+    simulationStartTime = performance.now();
+    recordingStartTime = performance.now();
+  }
 }
 
 function clearCanvas() {
@@ -592,14 +612,14 @@ function downloadReplay() {
   URL.revokeObjectURL(url);
 }
 
-function downloadReplayAsVideo() {
+function downloadReplayAsVideo(playbackSpeed = 1.0) {
   if (recordedFrames.length === 0) return;
 
-  const stream = canvas.captureStream(60);
+  const stream = canvas.captureStream(60); 
   const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-
   const chunks = [];
-
+  let hasRenderedLastFrame = false;
+  
   recorder.ondataavailable = e => {
     if (e.data.size > 0) chunks.push(e.data);
   };
@@ -609,9 +629,6 @@ function downloadReplayAsVideo() {
     const blob = new Blob(chunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
 
-    console.log("downloading replay.webm");
-    console.log("Downloading URL: ", url);
-
     const a = document.createElement("a");
     a.href = url;
     a.download = "replay.webm";
@@ -619,36 +636,20 @@ function downloadReplayAsVideo() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-
-    clearCanvas();
   };
-
-  recorder.start();
-  console.log("Recording started");
 
   let index = 0;
   let startTime = null;
 
-  function drawNextFrame(timestamp) {
-    if (startTime === null) {
-      startTime = timestamp;
+  function renderNextFrame(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = (timestamp - startTime) * playbackSpeed;
+
+    while (index < recordedFrames.length - 1 && recordedFrames[index + 1].time <= elapsed) {
+      index++;
     }
 
-    if (index >= recordedFrames.length) {
-      console.log("All frames rendered");
-      recorder.stop();
-      return;
-    }
-
-    const currentTime = timestamp - startTime; 
     const frame = recordedFrames[index];
-    const nextFrame = recordedFrames[index + 1];
-
-    if (frame.time > currentTime) {
-      requestAnimationFrame(drawNextFrame);
-      return;
-    }
-
     currentLesson = frame.lesson;
     objects = frame.objects.map(o => ({ ...o }));
 
@@ -656,19 +657,30 @@ function downloadReplayAsVideo() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawAllObjects();
 
-    ctx.fillStyle = "red";
-    ctx.fillText("Frame " + index, 20, 20);
+    if (index < recordedFrames.length - 1) {
+      requestAnimationFrame(renderNextFrame);
+    } else if (!hasRenderedLastFrame) {
+      hasRenderedLastFrame = true;
+      requestAnimationFrame(() => {
+        const lastFrame = recordedFrames[recordedFrames.length - 1];
+        currentLesson = lastFrame.lesson;
+        objects = lastFrame.objects.map(o => ({ ...o }));
 
-    index++;
-    requestAnimationFrame(drawNextFrame);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawAllObjects();
+
+        setTimeout(() => recorder.stop(), 100);
+      });
+    }
   }
 
   setTimeout(() => {
-    requestAnimationFrame(drawNextFrame);
+    recorder.start();
+    console.log("Recording started");
+    requestAnimationFrame(renderNextFrame);
   }, 100);
 }
-
-
 
 function drawAllObjects() {
   if (!objects) return;
@@ -680,31 +692,31 @@ function drawAllObjects() {
     case "freefall":
       objects.forEach(obj => {
         drawObject(ctx, obj, PixelPerMeter, canvas);
-        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
       });
       break;
     case "kinematics":
       objects.forEach(obj => {
         drawKinematicsObject(ctx, obj, PixelPerMeter, RulerStartX);
-        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
       });
       break;
     case "forces":
       objects.forEach(obj => {
         drawForcesObject(ctx, obj, PixelPerMeter, RulerStartX);
-        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX)
+        drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX)
       });
       break;
     case "friction":
       objects.forEach(obj => {
         drawFrictionObject(ctx, obj, PixelPerMeter, RulerStartX);
-        // drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
       });
       break;
     case "workEnergy":
       objects.forEach(obj => {
         drawWorkEnergyObject(ctx, obj, PixelPerMeter, canvas);
-        //drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
+        drawVelocityArrow(ctx, obj, PixelPerMeter, RulerStartX);
       });
       break;
   }
@@ -954,9 +966,9 @@ function updateLessonUI() {
         `;
   }
 
-    if (currentLesson === "workEnergy") {
-      desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
-      controls.innerHTML = `
+  if (currentLesson === "workEnergy") {
+    desc.innerHTML = "This lesson demonstrates the transformation between potential and kinetic energy as a ball bounces under gravity.";
+    controls.innerHTML = `
           <div id="work-energy-controls">
           <button id="spawnBtn" onclick="spawnBallWorkEnergyWrapper()">Spawn Ball</button>
           <button id="startBtn" onclick="toggleSimulationPause()">Start</button>
@@ -975,7 +987,7 @@ function updateLessonUI() {
           Initial Velocity Y: <input id="initVelY" type="number" value="0" step="0.5" style="width: 60px" />
           </div>
           `;
-    }
+  }
 
   const replayBtn = document.getElementById("replayBtn");
   if (replayBtn) {
@@ -993,12 +1005,12 @@ function updateLessonUI() {
   window.switchLesson = switchLesson;
   window.togglePause = togglePause;
 
-    window.toggleSimulationPause = toggleSimulationPause;
-    window.finishSimulation = finishSimulation;
-    window.replaySimulation = replaySimulation;
-    window.resetSimulation = resetSimulation;
-    window.downloadReplay = downloadReplay;
-    window.downloadReplayAsVideo = downloadReplayAsVideo;
+  window.toggleSimulationPause = toggleSimulationPause;
+  window.finishSimulation = finishSimulation;
+  window.replaySimulation = replaySimulation;
+  window.resetSimulation = resetSimulation;
+  window.downloadReplay = downloadReplay;
+  window.downloadReplayAsVideo = downloadReplayAsVideo;
 
 }
 

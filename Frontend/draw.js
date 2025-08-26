@@ -182,7 +182,8 @@ export function drawVelocityArrow(ctx, obj, PixelPerMeter, scale = 1) {
   const vx = obj.vx ?? 0;
   const vy = obj.vy ?? 0;
   const speed = Math.hypot(vx, vy);
-  if (speed < 0.01) return;
+  
+  if (speed < 0.05) return;
 
   const startX = obj.x;
   const startY = obj.y;
@@ -207,11 +208,6 @@ export function drawVelocityArrow(ctx, obj, PixelPerMeter, scale = 1) {
   ctx.fillStyle = "#ff0000";
   ctx.fill();
 }
-
-
-
-
-
 
 export function formatVelocity(obj, PixelPerMeter) {
   const vy = obj.vy ?? 0;

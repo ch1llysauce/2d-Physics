@@ -310,13 +310,12 @@ function resizeCanvas() {
   const width = wrapper.clientWidth;
   const height = width / 2;
 
-  const ratio = window.devicePixelRatio || 1;
-  canvas.width = width * ratio;
-  canvas.height = height * ratio;
+  canvas.width = width;
+  canvas.height = height;
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
 
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 window.addEventListener("resize", resizeCanvas);

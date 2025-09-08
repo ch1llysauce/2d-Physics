@@ -559,7 +559,6 @@ function resetSimulation() {
     }, 500);
   }
 
-
   const slider = document.getElementById("replaySlider");
   slider.style.display = "none";
 
@@ -567,6 +566,13 @@ function resetSimulation() {
   if (spawnBtn) {
     spawnBtn.disabled = false;
     spawnBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+
+  const startBtn = document.getElementById("startBtn");
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.classList.add("opacity-50", "cursor-not-allowed");
+    startBtn.textContent = "Start";
   }
 
   const clearBtn = document.getElementById("clearBtn");
@@ -739,7 +745,7 @@ function update() {
       timerDisplay.innerText = `${elapsed.toFixed(2)} s`;
     }
   }
-  
+
   if (!currentLesson) {
     ctx.restore();
   } else {
@@ -857,7 +863,7 @@ function update() {
 function switchLesson(lesson) {
   currentLesson = lesson;
   localStorage.setItem("currentLesson", lesson);
-  clearCanvas();
+  resetSimulation();
   updateLessonUI();
 
   // Update active button
